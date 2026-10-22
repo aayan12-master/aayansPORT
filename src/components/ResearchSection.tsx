@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import HandDrawnFrame from './HandDrawnFrame';
 import ResponsiveImage from './ResponsiveImage';
 import { RESEARCH_CATEGORIES } from '@/lib/categories';
@@ -139,6 +139,11 @@ export default function ResearchSection() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [activePost, setActivePost] = useState<ResearchPost | null>(null);
 
+  // Horizontal filter scrolling state & ref
+  const filterScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
   useEffect(() => {
     fetch('/api/research')
       .then((res) => res.json())
@@ -177,6 +182,55 @@ export default function ResearchSection() {
     });
     return ['ALL', ...activeCats];
   }, [categoryCounts]);
+
+  // Update horizontal filter scroll controls state
+  const updateScrollState = useCallback(() => {
+    const el = filterScrollRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollWidth > el.clientWidth + 2;
+    const isAtStart = el.scrollLeft <= 2;
+    const isAtEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+
+    setCanScrollLeft(hasOverflow && !isAtStart);
+    setCanScrollRight(hasOverflow && !isAtEnd);
+  }, []);
+
+  useEffect(() => {
+    const el = filterScrollRef.current;
+    if (!el) return;
+
+    updateScrollState();
+
+    const handleResize = () => updateScrollState();
+    window.addEventListener('resize', handleResize);
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => {
+        updateScrollState();
+      });
+      observer.observe(el);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (observer) observer.disconnect();
+    };
+  }, [updateScrollState, availableCategories]);
+
+  const handleScrollLeft = () => {
+    const el = filterScrollRef.current;
+    if (!el) return;
+    const distance = Math.max(el.clientWidth * 0.6, 200);
+    el.scrollBy({ left: -distance, behavior: 'smooth' });
+  };
+
+  const handleScrollRight = () => {
+    const el = filterScrollRef.current;
+    if (!el) return;
+    const distance = Math.max(el.clientWidth * 0.6, 200);
+    el.scrollBy({ left: distance, behavior: 'smooth' });
+  };
 
   // Reset selected category to ALL if selected category is no longer available
   useEffect(() => {
@@ -221,29 +275,71 @@ export default function ResearchSection() {
           </div>
         </div>
 
-        {/* Category Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-2 mt-6 font-mono text-xs">
-          <span className="text-[#5A5650] mr-2">// FILTER:</span>
-          {availableCategories.map((cat) => {
-            const isSelected = selectedCategory === cat;
-            const count = cat === 'ALL' ? posts.length : categoryCounts[cat] || 0;
-            return (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 border transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#171514] text-[#ECE8DF] border-[#171514] font-bold'
-                    : 'bg-[#ECE8DF] text-[#171514] border-[#171514]/40 hover:border-[#171514]'
-                }`}
-              >
-                <span>{cat}</span>{' '}
-                <span className={`text-[11px] font-normal ${isSelected ? 'text-[#ECE8DF]/80' : 'text-[#5A5650]'}`}>
-                  ({count})
-                </span>
-              </button>
-            );
-          })}
+        {/* Category Filter Tabs - Single Row Horizontal Scroll with Navigation Chevrons */}
+        <div className="relative flex items-center gap-2 mt-6 font-mono text-xs w-full max-w-full">
+          {/* Static Filter Label */}
+          <span className="text-[#5A5650] shrink-0 select-none mr-1">
+            // FILTER:
+          </span>
+
+          {/* Left Navigation Chevron (<<) */}
+          {canScrollLeft && (
+            <button
+              type="button"
+              onClick={handleScrollLeft}
+              aria-label="Scroll filters left"
+              title="Scroll filters left"
+              className="shrink-0 h-[31px] px-2.5 flex items-center justify-center border border-[#171514] bg-[#171514] text-[#ECE8DF] hover:bg-[#DF491E] hover:text-[#171514] font-mono text-xs font-bold transition-colors cursor-pointer select-none focus:outline-hidden focus:ring-1 focus:ring-[#DF491E]"
+            >
+              &lt;&lt;
+            </button>
+          )}
+
+          {/* Single-row horizontal scroll container */}
+          <div
+            ref={filterScrollRef}
+            onScroll={updateScrollState}
+            className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-1"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {availableCategories.map((cat) => {
+              const isSelected = selectedCategory === cat;
+              const count = cat === 'ALL' ? posts.length : categoryCounts[cat] || 0;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={(e) => {
+                    setSelectedCategory(cat);
+                    e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                  }}
+                  className={`shrink-0 px-3 py-1.5 border transition-all cursor-pointer whitespace-nowrap ${
+                    isSelected
+                      ? 'bg-[#171514] text-[#ECE8DF] border-[#171514] font-bold'
+                      : 'bg-[#ECE8DF] text-[#171514] border-[#171514]/40 hover:border-[#171514]'
+                  }`}
+                >
+                  <span>{cat}</span>{' '}
+                  <span className={`text-[11px] font-normal ${isSelected ? 'text-[#ECE8DF]/80' : 'text-[#5A5650]'}`}>
+                    ({count})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Right Navigation Chevron (>>) */}
+          {canScrollRight && (
+            <button
+              type="button"
+              onClick={handleScrollRight}
+              aria-label="Scroll filters right"
+              title="Scroll filters right"
+              className="shrink-0 h-[31px] px-2.5 flex items-center justify-center border border-[#171514] bg-[#171514] text-[#ECE8DF] hover:bg-[#DF491E] hover:text-[#171514] font-mono text-xs font-bold transition-colors cursor-pointer select-none focus:outline-hidden focus:ring-1 focus:ring-[#DF491E]"
+            >
+              &gt;&gt;
+            </button>
+          )}
         </div>
       </div>
 

@@ -28,6 +28,32 @@ interface Project {
   status: 'published' | 'draft';
   featured: boolean;
   display_order?: number;
+  readme_preview?: string;
+  readme_status?: 'available' | 'missing' | 'error';
+  default_branch?: string;
+  readme_synced_at?: string;
+}
+
+interface GitHubImportedData {
+  title: string;
+  slug: string;
+  summary: string;
+  readme_preview: string;
+  readme_status: 'available' | 'missing' | 'error';
+  category: string;
+  tech_stack: string;
+  repo_url: string;
+  demo_url?: string;
+  default_branch: string;
+  stars: number;
+  forks: number;
+  open_issues: number;
+  license: string | null;
+  owner: string;
+  repo_name: string;
+  is_duplicate: boolean;
+  duplicate_id?: string | number;
+  duplicate_title?: string;
 }
 
 interface ResearchPost {
@@ -187,6 +213,15 @@ export default function AdminPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [savingImport, setSavingImport] = useState(false);
   const [showContentPreview, setShowContentPreview] = useState(false);
+
+  // GitHub Tool Ingestion states
+  const [githubToolUrl, setGithubToolUrl] = useState('');
+  const [fetchingGitHubTool, setFetchingGitHubTool] = useState(false);
+  const [githubToolError, setGithubToolError] = useState('');
+  const [importedTool, setImportedTool] = useState<GitHubImportedData | null>(null);
+  const [isToolImportModalOpen, setIsToolImportModalOpen] = useState(false);
+  const [savingToolImport, setSavingToolImport] = useState(false);
+  const [refreshingToolId, setRefreshingToolId] = useState<string | number | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -509,6 +544,158 @@ export default function AdminPage() {
       showFeedback('error', 'Network error while saving imported research advisory.');
     } finally {
       setSavingImport(false);
+    }
+  };
+
+  const handleFetchGitHubTool = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = githubToolUrl.trim();
+    if (!trimmed) {
+      setGithubToolError('Please enter a GitHub repository URL (e.g. https://github.com/owner/repo).');
+      return;
+    }
+
+    setFetchingGitHubTool(true);
+    setGithubToolError('');
+
+    try {
+      const res = await fetch('/api/admin/tools/import-github', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trimmed }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setGithubToolError(data.error || 'Failed to fetch repository from GitHub. Check the URL or rate limits.');
+        return;
+      }
+
+      setImportedTool(data.data);
+      setIsToolImportModalOpen(true);
+    } catch {
+      setGithubToolError('Network communication error with GitHub ingestion backend.');
+    } finally {
+      setFetchingGitHubTool(false);
+    }
+  };
+
+  const handleSaveImportedTool = async (status: 'published' | 'draft') => {
+    if (!importedTool) return;
+    if (!importedTool.title.trim()) {
+      showFeedback('error', 'Tool title is required.');
+      return;
+    }
+    if (!importedTool.slug.trim()) {
+      showFeedback('error', 'Tool slug is required.');
+      return;
+    }
+    if (!importedTool.summary.trim()) {
+      showFeedback('error', 'Tool summary description is required.');
+      return;
+    }
+
+    setSavingToolImport(true);
+    try {
+      const isExistingDuplicate = Boolean(importedTool.is_duplicate && importedTool.duplicate_id);
+      const method = isExistingDuplicate ? 'PUT' : 'POST';
+
+      const payload: Record<string, any> = {
+        title: importedTool.title.trim(),
+        slug: importedTool.slug.trim().toLowerCase(),
+        summary: importedTool.summary.trim(),
+        description: importedTool.readme_preview || importedTool.summary.trim(),
+        readme_preview: importedTool.readme_preview || importedTool.summary.trim(),
+        readme_status: importedTool.readme_status,
+        tech_stack: importedTool.tech_stack || 'Security Tool',
+        category: importedTool.category || 'Security Tool',
+        repo_url: importedTool.repo_url,
+        demo_url: importedTool.demo_url || undefined,
+        default_branch: importedTool.default_branch || 'main',
+        status,
+        featured: false,
+      };
+
+      if (isExistingDuplicate && importedTool.duplicate_id) {
+        payload.id = importedTool.duplicate_id;
+      }
+
+      const res = await fetch('/api/admin/projects', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showFeedback(
+          'success',
+          status === 'published'
+            ? `Tool "${importedTool.title}" published to public Arsenal!`
+            : `Tool "${importedTool.title}" saved as draft (hidden from public).`
+        );
+        setIsToolImportModalOpen(false);
+        setImportedTool(null);
+        setGithubToolUrl('');
+        // Refresh project list & stats
+        const refRes = await fetch('/api/admin/projects').then((r) => r.json());
+        if (refRes.success) setProjects(refRes.projects);
+        const stRes = await fetch('/api/admin/overview').then((r) => r.json());
+        if (stRes.success) setStats(stRes.stats);
+      } else {
+        showFeedback('error', data.error || 'Failed to save tool to Arsenal.');
+      }
+    } catch {
+      showFeedback('error', 'Network error while saving imported tool.');
+    } finally {
+      setSavingToolImport(false);
+    }
+  };
+
+  const handleRefreshToolReadme = async (id: string | number) => {
+    setRefreshingToolId(id);
+    try {
+      const res = await fetch('/api/admin/tools/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showFeedback('success', data.message || 'README snapshot refreshed from GitHub.');
+        const refRes = await fetch('/api/admin/projects').then((r) => r.json());
+        if (refRes.success) setProjects(refRes.projects);
+      } else {
+        showFeedback('error', data.error || 'Failed to refresh README snapshot.');
+      }
+    } catch {
+      showFeedback('error', 'Network error while refreshing README snapshot.');
+    } finally {
+      setRefreshingToolId(null);
+    }
+  };
+
+  const handleToggleToolStatus = async (tool: Project) => {
+    const newStatus = tool.status === 'published' ? 'draft' : 'published';
+    try {
+      const res = await fetch('/api/admin/projects', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...tool, status: newStatus }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setProjects((prev) =>
+          prev.map((p) => (p.id === tool.id ? { ...p, status: newStatus } : p))
+        );
+        showFeedback('success', `Tool marked as ${newStatus}.`);
+        const stRes = await fetch('/api/admin/overview').then((r) => r.json());
+        if (stRes.success) setStats(stRes.stats);
+      } else {
+        showFeedback('error', data.error || 'Failed to update tool status.');
+      }
+    } catch {
+      showFeedback('error', 'Network error updating tool status.');
     }
   };
 
@@ -2034,15 +2221,18 @@ export default function AdminPage() {
             {/* ------------------------------------------------------------- */}
             {/* 5. ARSENAL & PROJECTS CRUD TAB */}
             {/* ------------------------------------------------------------- */}
+            {/* ------------------------------------------------------------- */}
+            {/* 5. ARSENAL & TOOLS CRUD & GITHUB INGESTION TAB */}
+            {/* ------------------------------------------------------------- */}
             {activeTab === 'projects' && (
               <div className="space-y-6">
-                <div className="border-b-2 border-[#171514] pb-4 flex items-center justify-between">
+                <div className="border-b-2 border-[#171514] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="font-mono text-xs font-bold text-[#DF491E] uppercase tracking-wider">
                       // CONTENT MODEL 04
                     </div>
                     <h2 className="font-display text-3xl font-extrabold text-[#171514] tracking-wide mt-1">
-                      ARSENAL &amp; TOOLS ({projects.length})
+                      OFFENSIVE TOOLING &amp; ARSENAL ({projects.length})
                     </h2>
                   </div>
                   <button
@@ -2053,86 +2243,464 @@ export default function AdminPage() {
                         slug: '',
                         summary: '',
                         description: '',
-                        tech_stack: '',
+                        tech_stack: 'Python, Shell',
                         category: 'Security Tool',
                         repo_url: '',
                         demo_url: '',
                         status: 'published',
                         featured: false,
+                        default_branch: 'main',
+                        readme_status: 'available',
+                        readme_preview: '',
                       });
                       setIsProjectModalOpen(true);
                     }}
-                    className="px-4 py-2 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold font-mono text-xs border border-[#171514] tracking-wider transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-[#171514] hover:bg-[#333] text-[#ECE8DF] font-bold font-mono text-xs border border-[#171514] tracking-wider transition-colors cursor-pointer shrink-0"
                   >
-                    + NEW TOOL
+                    + NEW TOOL (MANUAL)
                   </button>
                 </div>
 
-                {/* Projects Table */}
-                <div className="border-2 border-[#171514] bg-[#F2EFE7] overflow-x-auto">
+                {/* GitHub Repository Ingestion Hub (matching Medium Ingestion Hub) */}
+                <div className="border-2 border-[#171514] bg-[#F2EFE7] p-5 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-3">
+                    <div>
+                      <div className="font-mono text-[10px] font-bold text-[#DF491E] uppercase tracking-wider">
+                        // AUTOMATED GITHUB INGESTION ENGINE
+                      </div>
+                      <h3 className="font-display text-2xl font-extrabold text-[#171514] tracking-wide mt-0.5">
+                        IMPORT TOOL FROM GITHUB
+                      </h3>
+                    </div>
+                    <span className="font-mono text-[11px] text-[#5A5650] flex items-center gap-1.5">
+                      <span className="inline-block w-2 h-2 rounded-full bg-green-600 animate-pulse"></span>
+                      PIPELINE READY
+                    </span>
+                  </div>
+
+                  <p className="font-sans text-xs text-[#5A5650] leading-relaxed">
+                    Paste a public GitHub repository link (e.g., <code className="bg-[#D7D3CB] px-1 py-0.5 text-[#171514]">https://github.com/aayan12-master/ipCHv5</code>). The server-side ingestion engine verifies the repository, extracts metadata, creates a clean plain-text README preview snapshot, and stages the data for review before saving to Supabase.
+                  </p>
+
+                  <form onSubmit={handleFetchGitHubTool} className="space-y-3 font-mono text-xs">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5A5650] select-none font-bold">
+                          REPO:
+                        </span>
+                        <input
+                          type="url"
+                          value={githubToolUrl}
+                          onChange={(e) => {
+                            setGithubToolUrl(e.target.value);
+                            if (githubToolError) setGithubToolError('');
+                          }}
+                          placeholder="https://github.com/owner/repository"
+                          disabled={fetchingGitHubTool}
+                          className="w-full bg-[#ECE8DF] border-2 border-[#171514] pl-16 pr-3 py-2.5 text-[#171514] placeholder-[#8A857D] focus:outline-none focus:border-[#DF491E] disabled:opacity-60"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={fetchingGitHubTool || !githubToolUrl.trim()}
+                        className="px-6 py-2.5 bg-[#DF491E] hover:bg-[#C73E16] disabled:bg-[#DF491E]/50 text-[#171514] font-bold border-2 border-[#171514] tracking-wider transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0"
+                      >
+                        {fetchingGitHubTool ? (
+                          <>
+                            <span className="animate-spin text-base leading-none">⟳</span>
+                            <span>FETCHING REPO...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>FETCH REPOSITORY</span>
+                            <span>→</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {githubToolError && (
+                      <div className="p-3 bg-red-100 border border-red-500 text-red-900 flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2">
+                          <span className="font-bold text-red-700">[!]</span>
+                          <span className="leading-snug">{githubToolError}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setGithubToolError('')}
+                          className="font-bold hover:text-red-700 px-1 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#5A5650]">
+                      <span className="flex items-center gap-1">
+                        <span className="text-[#DF491E]">✓</span> Server-side GitHub API validation (SSRF protected)
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-[#DF491E]">✓</span> Faithful README preview snapshot (no fabricated text)
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-[#DF491E]">✓</span> Review &amp; Edit staging modal before saving
+                      </span>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Arsenal Tools Table */}
+                <div className="border-2 border-[#171514] bg-[#F2EFE7] overflow-x-auto shadow-sm">
                   <table className="w-full text-left font-mono text-xs border-collapse">
                     <thead>
                       <tr className="border-b-2 border-[#171514] bg-[#171514] text-[#ECE8DF]">
                         <th className="p-3">TOOL NAME &amp; SLUG</th>
-                        <th className="p-3">TECH STACK</th>
-                        <th className="p-3">CATEGORY</th>
+                        <th className="p-3">CATEGORY &amp; TECH</th>
+                        <th className="p-3">README SNAPSHOT</th>
                         <th className="p-3">STATUS</th>
                         <th className="p-3 text-right">ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {projects.map((p) => (
-                        <tr key={p.id} className="border-b border-[#171514]/20 hover:bg-[#ECE8DF]/70">
-                          <td className="p-3">
-                            <div className="font-bold text-[#171514] flex items-center gap-2">
-                              <span>{p.title}</span>
-                              {p.featured && (
-                                <span className="px-1.5 py-0.2 bg-[#DF491E] text-[#171514] text-[9px] font-bold">
-                                  FEATURED
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[10px] text-[#5A5650]">{p.slug}</div>
-                          </td>
-                          <td className="p-3 text-[#5A5650]">{p.tech_stack}</td>
-                          <td className="p-3">{p.category}</td>
-                          <td className="p-3">
-                            <span
-                              className={`px-2 py-0.5 text-[10px] font-bold ${
-                                p.status === 'published'
-                                  ? 'bg-green-700/20 text-green-900 border border-green-700'
-                                  : 'bg-yellow-500/20 text-yellow-900 border border-yellow-700'
-                              }`}
-                            >
-                              {p.status}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right space-x-2">
-                            <button
-                              onClick={() => {
-                                setEditingProject(p);
-                                setIsProjectModalOpen(true);
-                              }}
-                              className="px-2.5 py-1 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] transition-colors"
-                            >
-                              EDIT
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm({ type: 'project', id: p.id, title: p.title })}
-                              className="px-2.5 py-1 border border-[#DF491E] text-[#DF491E] hover:bg-[#DF491E] hover:text-[#171514] transition-colors"
-                            >
-                              DELETE
-                            </button>
+                      {projects.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-8 text-center text-[#5A5650]">
+                            No tools currently saved in Supabase. Import a repository using the GitHub engine above.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        projects.map((p) => (
+                          <tr key={p.id} className="border-b border-[#171514]/20 hover:bg-[#ECE8DF]/70">
+                            <td className="p-3">
+                              <div className="font-bold text-[#171514] flex items-center gap-2">
+                                <span>{p.title}</span>
+                                {p.featured && (
+                                  <span className="px-1.5 py-0.2 bg-[#DF491E] text-[#171514] text-[9px] font-bold">
+                                    FEATURED
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-[#5A5650] flex items-center gap-2 mt-0.5">
+                                <span>{p.slug}</span>
+                                {p.repo_url && (
+                                  <a
+                                    href={p.repo_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#DF491E] hover:underline"
+                                    title="Open GitHub repository"
+                                  >
+                                    [GITHUB ↗]
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-semibold text-[#171514]">{p.category}</div>
+                              <div className="text-[10px] text-[#5A5650]">{p.tech_stack || 'Security Tool'}</div>
+                            </td>
+                            <td className="p-3">
+                              {p.readme_status === 'missing' ? (
+                                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-600">
+                                  NO README
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 text-[10px] font-bold bg-green-100 text-green-900 border border-green-700">
+                                  ✓ SNAPSHOTTED
+                                </span>
+                              )}
+                              <div className="text-[9px] text-[#5A5650] mt-0.5">
+                                Branch: {p.default_branch || 'main'}
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <button
+                                onClick={() => handleToggleToolStatus(p)}
+                                title="Click to toggle published / draft visibility"
+                                className={`px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
+                                  p.status === 'published'
+                                    ? 'bg-green-700/20 text-green-900 border border-green-700 hover:bg-green-700/30'
+                                    : 'bg-yellow-500/20 text-yellow-900 border border-yellow-700 hover:bg-yellow-500/30'
+                                }`}
+                              >
+                                {p.status.toUpperCase()}
+                              </button>
+                            </td>
+                            <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                              {p.repo_url && (
+                                <button
+                                  onClick={() => handleRefreshToolReadme(p.id)}
+                                  disabled={refreshingToolId === p.id}
+                                  title="Refresh README snapshot intentionally from GitHub"
+                                  className="px-2 py-1 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1"
+                                >
+                                  <span className={refreshingToolId === p.id ? 'animate-spin inline-block' : ''}>⟳</span>
+                                  <span>{refreshingToolId === p.id ? 'REFRESHING...' : 'REFRESH'}</span>
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setEditingProject(p);
+                                  setIsProjectModalOpen(true);
+                                }}
+                                className="px-2.5 py-1 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] transition-colors cursor-pointer"
+                              >
+                                EDIT
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirm({ type: 'project', id: p.id, title: p.title })}
+                                className="px-2.5 py-1 border border-[#DF491E] text-[#DF491E] hover:bg-[#DF491E] hover:text-[#171514] transition-colors cursor-pointer"
+                              >
+                                DELETE
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
             )}
 
-            {/* Project Modal Editor */}
+            {/* GitHub Tool Review & Staging Modal (matches Medium Review Modal) */}
+            {isToolImportModalOpen && importedTool && (
+              <div className="fixed inset-0 z-50 bg-[#171514]/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+                <div className="w-full max-w-3xl bg-[#F2EFE7] border-3 border-[#171514] shadow-2xl font-mono text-xs my-8 max-h-[92vh] flex flex-col">
+                  {/* Modal Header */}
+                  <div className="p-4 sm:p-5 border-b-2 border-[#171514] bg-[#ECE8DF] flex items-center justify-between shrink-0">
+                    <div>
+                      <div className="text-[10px] font-bold text-[#DF491E] uppercase tracking-wider">
+                        // GITHUB INGESTION STAGING REVIEW &amp; PUBLISH
+                      </div>
+                      <h3 className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] mt-0.5">
+                        REVIEW IMPORTED ARSENAL TOOL
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!savingToolImport) {
+                          setIsToolImportModalOpen(false);
+                          setImportedTool(null);
+                        }
+                      }}
+                      disabled={savingToolImport}
+                      className="w-8 h-8 flex items-center justify-center border border-[#171514] bg-[#171514] text-[#ECE8DF] hover:bg-[#DF491E] hover:text-[#171514] font-bold transition-colors cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+                    {/* Duplicate warning alert */}
+                    {importedTool.is_duplicate && (
+                      <div className="p-3 bg-amber-100 border-2 border-amber-600 text-amber-950 flex items-start gap-3">
+                        <span className="text-amber-700 font-bold text-base leading-none">⚠</span>
+                        <div className="space-y-1">
+                          <div className="font-bold uppercase tracking-wider text-xs">
+                            POTENTIAL DUPLICATE TOOL DETECTED
+                          </div>
+                          <p className="text-[11px] leading-relaxed">
+                            A tool referencing this repository already exists in Supabase:
+                            <strong className="block mt-0.5">&ldquo;{importedTool.duplicate_title}&rdquo; (ID: {importedTool.duplicate_id})</strong>
+                            Saving this will record it as an additional tool or update. Make sure the slug is unique.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Repository Ingestion Dossier Card */}
+                    <div className="p-4 border border-[#171514] bg-[#ECE8DF] space-y-2.5">
+                      <div className="font-bold text-[#DF491E] uppercase text-[10px]">
+                        // REPOSITORY INGESTION DOSSIER
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+                        <div>
+                          <span className="text-[#5A5650] block text-[10px]">REPOSITORY:</span>
+                          <span className="font-bold text-[#171514] break-all">{importedTool.owner}/{importedTool.repo_name}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#5A5650] block text-[10px]">DEFAULT BRANCH:</span>
+                          <span className="font-bold text-[#171514]">{importedTool.default_branch}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#5A5650] block text-[10px]">DETECTED LANGUAGE:</span>
+                          <span className="font-bold text-[#171514]">{importedTool.tech_stack || 'Script'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#5A5650] block text-[10px]">README STATUS:</span>
+                          <span
+                            className={`font-bold ${
+                              importedTool.readme_status === 'available' ? 'text-green-800' : 'text-amber-800'
+                            }`}
+                          >
+                            {importedTool.readme_status === 'available' ? '✓ DETECTED' : 'MISSING'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Editable Form Fields */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block font-bold text-[#171514] mb-1">TOOL NAME / TITLE</label>
+                        <input
+                          type="text"
+                          value={importedTool.title}
+                          onChange={(e) => {
+                            const title = e.target.value;
+                            const slug = title
+                              .toLowerCase()
+                              .replace(/[^a-z0-9]+/g, '-')
+                              .replace(/(^-|-$)/g, '');
+                            setImportedTool({ ...importedTool, title, slug });
+                          }}
+                          className="w-full bg-[#ECE8DF] border-2 border-[#171514] p-2.5 text-[#171514]"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">SLUG (URL KEY)</label>
+                          <input
+                            type="text"
+                            value={importedTool.slug}
+                            onChange={(e) => setImportedTool({ ...importedTool, slug: e.target.value })}
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2 text-[#171514]"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">SECURITY CATEGORY</label>
+                          <input
+                            type="text"
+                            value={importedTool.category}
+                            onChange={(e) => setImportedTool({ ...importedTool, category: e.target.value })}
+                            placeholder="e.g. Privacy & Anonymity"
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2 text-[#171514]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">TECH STACK / LANGUAGE</label>
+                          <input
+                            type="text"
+                            value={importedTool.tech_stack}
+                            onChange={(e) => setImportedTool({ ...importedTool, tech_stack: e.target.value })}
+                            placeholder="Shell, Python, Go"
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2 text-[#171514]"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-[#171514] mb-1">
+                          ADMIN-AUTHORED SHORT DESCRIPTION (SUMMARY)
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={importedTool.summary}
+                          onChange={(e) => setImportedTool({ ...importedTool, summary: e.target.value })}
+                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 text-[#171514]"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-[#171514] mb-1">
+                          README PREVIEW SNAPSHOT (FAITHFULLY EXTRACTED FROM REAL README)
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={importedTool.readme_preview}
+                          onChange={(e) => setImportedTool({ ...importedTool, readme_preview: e.target.value })}
+                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 text-[#171514]"
+                        />
+                        <p className="text-[10px] text-[#5A5650] mt-1">
+                          This preview is saved directly into Supabase. Public visitors read this snapshot without making GitHub requests.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">GITHUB REPOSITORY URL</label>
+                          <input
+                            type="url"
+                            value={importedTool.repo_url}
+                            onChange={(e) => setImportedTool({ ...importedTool, repo_url: e.target.value })}
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2 text-[#171514]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">DEFAULT BRANCH</label>
+                          <input
+                            type="text"
+                            value={importedTool.default_branch}
+                            onChange={(e) => setImportedTool({ ...importedTool, default_branch: e.target.value })}
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2 text-[#171514]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="p-4 sm:p-5 border-t-2 border-[#171514] bg-[#ECE8DF] flex flex-wrap items-center justify-between gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!savingToolImport) {
+                          setIsToolImportModalOpen(false);
+                          setImportedTool(null);
+                        }
+                      }}
+                      disabled={savingToolImport}
+                      className="px-4 py-2 border-2 border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors cursor-pointer"
+                    >
+                      CANCEL
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveImportedTool('draft')}
+                        disabled={savingToolImport}
+                        className="px-4 py-2 border-2 border-[#171514] bg-[#ECE8DF] hover:bg-[#D7D3CB] text-[#171514] font-bold transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {savingToolImport ? 'SAVING...' : 'SAVE AS DRAFT'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSaveImportedTool('published')}
+                        disabled={savingToolImport}
+                        className="px-5 py-2 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border-2 border-[#171514] tracking-wider transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {savingToolImport ? (
+                          <>
+                            <span className="animate-spin text-sm">⟳</span>
+                            <span>PUBLISHING...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>PUBLISH TO ARSENAL</span>
+                            <span>→</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Manual Tool Modal Editor (Updated with README fields & sync) */}
             {isProjectModalOpen && editingProject && (
               <div className="fixed inset-0 z-50 bg-[#171514]/60 backdrop-blur-xs flex items-center justify-center p-4">
                 <form
@@ -2194,7 +2762,7 @@ export default function AdminPage() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block font-bold text-[#171514] mb-1">TECH STACK</label>
+                      <label className="block font-bold text-[#171514] mb-1">TECH STACK / LANGUAGE</label>
                       <input
                         type="text"
                         value={editingProject.tech_stack}
@@ -2219,7 +2787,7 @@ export default function AdminPage() {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-[#171514] mb-1">SUMMARY</label>
+                    <label className="block font-bold text-[#171514] mb-1">SHORT DESCRIPTION (SUMMARY)</label>
                     <textarea
                       rows={2}
                       value={editingProject.summary}
@@ -2230,11 +2798,18 @@ export default function AdminPage() {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-[#171514] mb-1">DETAILED SPECIFICATION</label>
+                    <label className="block font-bold text-[#171514] mb-1">README PREVIEW SNAPSHOT</label>
                     <textarea
                       rows={3}
-                      value={editingProject.description}
-                      onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                      value={editingProject.readme_preview || editingProject.description || ''}
+                      onChange={(e) =>
+                        setEditingProject({
+                          ...editingProject,
+                          readme_preview: e.target.value,
+                          description: e.target.value,
+                        })
+                      }
+                      placeholder="Sanitized excerpt from README (saved as snapshot in Supabase)"
                       className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
                     />
                   </div>
@@ -2250,14 +2825,24 @@ export default function AdminPage() {
                       />
                     </div>
                     <div>
-                      <label className="block font-bold text-[#171514] mb-1">LIVE DEMO URL</label>
+                      <label className="block font-bold text-[#171514] mb-1">DEFAULT BRANCH</label>
                       <input
-                        type="url"
-                        value={editingProject.demo_url || ''}
-                        onChange={(e) => setEditingProject({ ...editingProject, demo_url: e.target.value })}
+                        type="text"
+                        value={editingProject.default_branch || 'main'}
+                        onChange={(e) => setEditingProject({ ...editingProject, default_branch: e.target.value })}
                         className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-[#171514] mb-1">LIVE DEMO URL (OPTIONAL)</label>
+                    <input
+                      type="url"
+                      value={editingProject.demo_url || ''}
+                      onChange={(e) => setEditingProject({ ...editingProject, demo_url: e.target.value })}
+                      className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                    />
                   </div>
 
                   <div className="flex items-center gap-2 pt-1">
@@ -2269,7 +2854,7 @@ export default function AdminPage() {
                       className="w-4 h-4 accent-[#DF491E]"
                     />
                     <label htmlFor="featured" className="font-bold text-[#171514]">
-                      Feature this project in prominent showcase
+                      Feature this tool prominently in showcase
                     </label>
                   </div>
 

@@ -163,12 +163,20 @@ CREATE TABLE IF NOT EXISTS projects (
   status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('published', 'draft')),
   featured BOOLEAN NOT NULL DEFAULT false,
   display_order INTEGER NOT NULL DEFAULT 0,
+  readme_preview TEXT,
+  readme_status TEXT DEFAULT 'available' CHECK (readme_status IN ('available', 'missing', 'error')),
+  default_branch TEXT DEFAULT 'main',
+  readme_synced_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects (status);
 CREATE INDEX IF NOT EXISTS idx_projects_slug ON projects (slug);
+CREATE INDEX IF NOT EXISTS idx_projects_repo_url ON projects (repo_url);
+
+-- View: tools (direct alias mapping to projects)
+CREATE OR REPLACE VIEW tools AS SELECT * FROM projects;
 
 DROP TRIGGER IF EXISTS update_projects_updated_at ON projects;
 CREATE TRIGGER update_projects_updated_at

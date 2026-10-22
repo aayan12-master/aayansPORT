@@ -1,5 +1,5 @@
-import { getRequiredSupabaseServerClient, isSupabaseConfigured } from './supabase/server';
-import { getRequiredSupabaseAdminClient, isSupabaseAdminConfigured } from './supabase/admin';
+import { getRequiredSupabaseServerClient, isSupabaseConfigured, checkIsSupabaseConfigured } from './supabase/server';
+import { getRequiredSupabaseAdminClient, isSupabaseAdminConfigured, checkIsSupabaseAdminConfigured } from './supabase/admin';
 
 export interface SiteSettings {
   id: string;
@@ -77,9 +77,15 @@ export interface Project {
   status: 'published' | 'draft';
   featured: boolean;
   display_order: number;
+  readme_preview?: string;
+  readme_status?: 'available' | 'missing' | 'error';
+  default_branch?: string;
+  readme_synced_at?: string;
   created_at?: string;
   updated_at?: string;
 }
+
+export type Tool = Project;
 
 export interface ResearchPost {
   id: string | number;
@@ -324,11 +330,13 @@ export async function updateMethodologyStep(id: string | number, step: Partial<M
 }
 
 // -----------------------------------------------------------------------------
-// 4. PROJECTS / ARSENAL
+// 4. PROJECTS / ARSENAL / TOOLS (Supabase is sole source of truth)
 // -----------------------------------------------------------------------------
 export async function getProjects(options: { publishedOnly?: boolean } = {}): Promise<Project[]> {
   const publishedOnly = options.publishedOnly ?? true;
-  const supabase = await getRequiredSupabaseServerClient();
+  const supabase = publishedOnly
+    ? await getRequiredSupabaseServerClient()
+    : (checkIsSupabaseAdminConfigured() ? getRequiredSupabaseAdminClient() : await getRequiredSupabaseServerClient());
 
   let query = supabase.from('projects').select('*').order('display_order', { ascending: true });
   if (publishedOnly) {
@@ -341,53 +349,149 @@ export async function getProjects(options: { publishedOnly?: boolean } = {}): Pr
     throw new Error(`Failed to fetch projects from Supabase: ${error.message}`);
   }
 
-  return (data || []).map((p) => ({
+  return (data || []).map((p: any) => ({
     ...p,
+    readme_preview: p.readme_preview || p.description || p.summary,
+    readme_status: p.readme_status || 'available',
+    default_branch: p.default_branch || 'main',
+    readme_synced_at: p.readme_synced_at || p.updated_at,
     featured: Boolean(p.featured),
   })) as Project[];
 }
 
-export async function createProject(project: Omit<Project, 'id'>): Promise<Project> {
-  const supabase = getRequiredSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from('projects')
-    .insert({
-      title: project.title,
-      slug: project.slug,
-      summary: project.summary,
-      description: project.description,
-      tech_stack: project.tech_stack,
-      category: project.category,
-      repo_url: project.repo_url || null,
-      demo_url: project.demo_url || null,
-      image_url: project.image_url || null,
-      status: project.status,
-      featured: project.featured,
-      display_order: project.display_order || 0,
-    })
-    .select()
-    .single();
+export const getTools = getProjects;
 
-  if (error || !data) {
-    console.error('[CMS] Failed to create project in Supabase:', error?.message);
-    throw new Error(`Failed to create project in Supabase: ${error?.message || 'Unknown error'}`);
+export async function getProjectById(id: string | number): Promise<Project | null> {
+  const supabase = checkIsSupabaseAdminConfigured()
+    ? getRequiredSupabaseAdminClient()
+    : await getRequiredSupabaseServerClient();
+  const { data, error } = await supabase.from('projects').select('*').eq('id', id).maybeSingle();
+  if (error) {
+    console.error(`[CMS] Failed to fetch project ${id} from Supabase:`, error.message);
+    throw new Error(`Failed to fetch project from Supabase: ${error.message}`);
   }
-
+  if (!data) return null;
   return {
     ...data,
+    readme_preview: data.readme_preview || data.description || data.summary,
+    readme_status: data.readme_status || 'available',
+    default_branch: data.default_branch || 'main',
+    readme_synced_at: data.readme_synced_at || data.updated_at,
     featured: Boolean(data.featured),
   } as Project;
 }
 
+export const getToolById = getProjectById;
+
+export async function findProjectByRepoUrl(repoUrl: string): Promise<Project | null> {
+  if (!repoUrl) return null;
+  const normalized = repoUrl.trim().toLowerCase().replace(/\/+$/, '').replace(/\.git$/, '');
+  const supabase = checkIsSupabaseAdminConfigured()
+    ? getRequiredSupabaseAdminClient()
+    : await getRequiredSupabaseServerClient();
+  const { data, error } = await supabase.from('projects').select('*');
+  if (error || !data) return null;
+
+  const found = data.find((p: any) => {
+    if (!p.repo_url) return false;
+    const existingNorm = p.repo_url.trim().toLowerCase().replace(/\/+$/, '').replace(/\.git$/, '');
+    return existingNorm === normalized;
+  });
+
+  if (!found) return null;
+  return {
+    ...found,
+    readme_preview: found.readme_preview || found.description || found.summary,
+    readme_status: found.readme_status || 'available',
+    default_branch: found.default_branch || 'main',
+    readme_synced_at: found.readme_synced_at || found.updated_at,
+    featured: Boolean(found.featured),
+  } as Project;
+}
+
+export const findToolByRepoUrl = findProjectByRepoUrl;
+
+export async function createProject(project: Omit<Project, 'id'>): Promise<Project> {
+  const supabase = getRequiredSupabaseAdminClient();
+
+  const primaryPayload: Record<string, any> = {
+    title: project.title,
+    slug: project.slug,
+    summary: project.summary,
+    description: project.description || project.readme_preview || project.summary,
+    tech_stack: project.tech_stack,
+    category: project.category,
+    repo_url: project.repo_url || null,
+    demo_url: project.demo_url || null,
+    image_url: project.image_url || null,
+    status: project.status,
+    featured: Boolean(project.featured),
+    display_order: project.display_order || 0,
+    readme_preview: project.readme_preview || null,
+    readme_status: project.readme_status || 'available',
+    default_branch: project.default_branch || 'main',
+    readme_synced_at: project.readme_synced_at || new Date().toISOString(),
+  };
+
+  // Attempt insert with complete schema; fall back to core schema if columns are not yet migrated
+  let result = await supabase.from('projects').insert(primaryPayload).select().single();
+
+  if (result.error && (result.error.code === '42703' || result.error.message?.includes('column'))) {
+    console.warn('[CMS] Supabase projects table does not have readme columns yet. Using core fallback columns.');
+    const fallbackPayload = { ...primaryPayload };
+    delete fallbackPayload.readme_preview;
+    delete fallbackPayload.readme_status;
+    delete fallbackPayload.default_branch;
+    delete fallbackPayload.readme_synced_at;
+    result = await supabase.from('projects').insert(fallbackPayload).select().single();
+  }
+
+  if (result.error || !result.data) {
+    console.error('[CMS] Failed to create project in Supabase:', result.error?.message);
+    throw new Error(`Failed to create project in Supabase: ${result.error?.message || 'Unknown error'}`);
+  }
+
+  return {
+    ...result.data,
+    readme_preview: result.data.readme_preview || result.data.description || result.data.summary,
+    readme_status: result.data.readme_status || 'available',
+    default_branch: result.data.default_branch || 'main',
+    readme_synced_at: result.data.readme_synced_at || result.data.updated_at,
+    featured: Boolean(result.data.featured),
+  } as Project;
+}
+
+export const createTool = createProject;
+
 export async function updateProject(id: string | number, updates: Partial<Project>): Promise<boolean> {
   const supabase = getRequiredSupabaseAdminClient();
-  const { error } = await supabase.from('projects').update(updates).eq('id', id);
-  if (error) {
-    console.error('[CMS] Failed to update project in Supabase:', error.message);
-    throw new Error(`Failed to update project in Supabase: ${error.message}`);
+
+  const payload: Record<string, any> = { ...updates };
+  // Ensure description is also kept in sync with readme_preview if updated
+  if (updates.readme_preview && !updates.description) {
+    payload.description = updates.readme_preview;
+  }
+
+  let result = await supabase.from('projects').update(payload).eq('id', id);
+
+  if (result.error && (result.error.code === '42703' || result.error.message?.includes('column'))) {
+    console.warn('[CMS] Supabase projects table does not have readme columns yet. Updating core columns only.');
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.readme_preview;
+    delete fallbackPayload.readme_status;
+    delete fallbackPayload.default_branch;
+    delete fallbackPayload.readme_synced_at;
+    result = await supabase.from('projects').update(fallbackPayload).eq('id', id);
+  }
+
+  if (result.error) {
+    console.error('[CMS] Failed to update project in Supabase:', result.error.message);
+    throw new Error(`Failed to update project in Supabase: ${result.error.message}`);
   }
   return true;
 }
+
+export const updateTool = updateProject;
 
 export async function deleteProject(id: string | number): Promise<boolean> {
   const supabase = getRequiredSupabaseAdminClient();
@@ -399,12 +503,16 @@ export async function deleteProject(id: string | number): Promise<boolean> {
   return true;
 }
 
+export const deleteTool = deleteProject;
+
 // -----------------------------------------------------------------------------
 // 5. RESEARCH POSTS & ADVISORIES (Supabase is sole source of truth)
 // -----------------------------------------------------------------------------
 export async function getResearchPosts(options: { publishedOnly?: boolean } = {}): Promise<ResearchPost[]> {
   const publishedOnly = options.publishedOnly ?? true;
-  const supabase = await getRequiredSupabaseServerClient();
+  const supabase = publishedOnly
+    ? await getRequiredSupabaseServerClient()
+    : (checkIsSupabaseAdminConfigured() ? getRequiredSupabaseAdminClient() : await getRequiredSupabaseServerClient());
 
   let query = supabase.from('research_posts').select('*').order('published_date', { ascending: false });
   if (publishedOnly) {
@@ -454,7 +562,9 @@ export async function findResearchByExternalUrl(url: string): Promise<ResearchPo
   const cleanUrl = url.trim();
   if (!cleanUrl) return null;
 
-  const supabase = await getRequiredSupabaseServerClient();
+  const supabase = checkIsSupabaseAdminConfigured()
+    ? getRequiredSupabaseAdminClient()
+    : await getRequiredSupabaseServerClient();
   const { data, error } = await supabase
     .from('research_posts')
     .select('*')

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getProjects, createProject, updateProject, deleteProject } from '@/lib/cms';
 
@@ -25,7 +26,23 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { title, slug, summary, description, tech_stack, category, repo_url, demo_url, image_url, status, featured } = body;
+    const {
+      title,
+      slug,
+      summary,
+      description,
+      tech_stack,
+      category,
+      repo_url,
+      demo_url,
+      image_url,
+      status,
+      featured,
+      readme_preview,
+      readme_status,
+      default_branch,
+      readme_synced_at,
+    } = body;
 
     if (!title || !slug || !summary) {
       return NextResponse.json({ success: false, error: 'Title, slug, and summary are required' }, { status: 400 });
@@ -35,7 +52,7 @@ export async function POST(req: NextRequest) {
       title: title.trim(),
       slug: slug.trim().toLowerCase(),
       summary: summary.trim(),
-      description: (description || '').trim(),
+      description: (description || readme_preview || summary).trim(),
       tech_stack: (tech_stack || '').trim(),
       category: category || 'Security Tool',
       repo_url: (repo_url || '').trim() || undefined,
@@ -44,7 +61,16 @@ export async function POST(req: NextRequest) {
       status: status === 'draft' ? 'draft' : 'published',
       featured: Boolean(featured),
       display_order: 0,
+      readme_preview: (readme_preview || description || summary || '').trim() || undefined,
+      readme_status: readme_status || 'available',
+      default_branch: (default_branch || 'main').trim(),
+      readme_synced_at: readme_synced_at || new Date().toISOString(),
     });
+
+    try {
+      revalidatePath('/api/tools');
+      revalidatePath('/');
+    } catch {}
 
     return NextResponse.json({ success: true, message: 'Project created', project: created });
   } catch (error) {
@@ -61,7 +87,24 @@ export async function PUT(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { id, title, slug, summary, description, tech_stack, category, repo_url, demo_url, image_url, status, featured } = body;
+    const {
+      id,
+      title,
+      slug,
+      summary,
+      description,
+      tech_stack,
+      category,
+      repo_url,
+      demo_url,
+      image_url,
+      status,
+      featured,
+      readme_preview,
+      readme_status,
+      default_branch,
+      readme_synced_at,
+    } = body;
 
     if (!id || !title || !slug) {
       return NextResponse.json({ success: false, error: 'ID, title, and slug are required' }, { status: 400 });
@@ -71,7 +114,7 @@ export async function PUT(req: NextRequest) {
       title: title.trim(),
       slug: slug.trim().toLowerCase(),
       summary: summary.trim(),
-      description: (description || '').trim(),
+      description: (description || readme_preview || summary || '').trim(),
       tech_stack: (tech_stack || '').trim(),
       category: category || 'Security Tool',
       repo_url: (repo_url || '').trim() || undefined,
@@ -79,7 +122,16 @@ export async function PUT(req: NextRequest) {
       image_url: (image_url || '').trim() || undefined,
       status: status === 'draft' ? 'draft' : 'published',
       featured: Boolean(featured),
+      readme_preview: readme_preview !== undefined ? (readme_preview || '').trim() : undefined,
+      readme_status: readme_status || undefined,
+      default_branch: default_branch !== undefined ? (default_branch || 'main').trim() : undefined,
+      readme_synced_at: readme_synced_at || undefined,
     });
+
+    try {
+      revalidatePath('/api/tools');
+      revalidatePath('/');
+    } catch {}
 
     return NextResponse.json({ success: true, message: 'Project updated' });
   } catch (error) {
@@ -103,6 +155,12 @@ export async function DELETE(req: NextRequest) {
     }
 
     await deleteProject(id);
+
+    try {
+      revalidatePath('/api/tools');
+      revalidatePath('/');
+    } catch {}
+
     return NextResponse.json({ success: true, message: 'Project deleted' });
   } catch (error) {
     console.error('Error deleting project:', error);

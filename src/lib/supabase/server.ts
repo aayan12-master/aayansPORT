@@ -2,17 +2,10 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-export const isSupabaseConfigured = Boolean(
-  supabaseUrl &&
-  supabaseAnonKey &&
-  !supabaseUrl.includes('placeholder') &&
-  !supabaseUrl.includes('example.supabase.co')
-);
-
 export function getSupabaseConfigStatus(): { configured: boolean; missingVars: string[] } {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
   const missing: string[] = [];
   if (!supabaseUrl || supabaseUrl.includes('placeholder') || supabaseUrl.includes('example.supabase.co')) {
     missing.push('NEXT_PUBLIC_SUPABASE_URL');
@@ -24,6 +17,17 @@ export function getSupabaseConfigStatus(): { configured: boolean; missingVars: s
     configured: missing.length === 0,
     missingVars: missing,
   };
+}
+
+export const isSupabaseConfigured = Boolean(
+  (process.env.NEXT_PUBLIC_SUPABASE_URL || '') &&
+  (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '') &&
+  !(process.env.NEXT_PUBLIC_SUPABASE_URL || '').includes('placeholder') &&
+  !(process.env.NEXT_PUBLIC_SUPABASE_URL || '').includes('example.supabase.co')
+);
+
+export function checkIsSupabaseConfigured(): boolean {
+  return getSupabaseConfigStatus().configured;
 }
 
 export async function getRequiredSupabaseServerClient(): Promise<SupabaseClient> {
@@ -42,9 +46,12 @@ export async function getRequiredSupabaseServerClient(): Promise<SupabaseClient>
 }
 
 export async function getSupabaseServerClient(): Promise<SupabaseClient | null> {
-  if (!isSupabaseConfigured) {
+  if (!checkIsSupabaseConfigured()) {
     return null;
   }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
   let cookieStore: any = null;
   try {

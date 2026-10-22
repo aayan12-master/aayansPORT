@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
+import ToolsTerminal from './ToolsTerminal';
 
 interface NavigationRailProps {
   activeSection: string;
@@ -152,6 +152,9 @@ export default function NavigationRail({ activeSection, onSelectSection }: Navig
               <a href="https://linkedin.com/in/aayan-sec" target="_blank" rel="noopener noreferrer" className="hover:text-[#DF491E]">LINKEDIN ↗</a>
               <a href="https://x.com/aayan_sec" target="_blank" rel="noopener noreferrer" className="hover:text-[#DF491E]">TWITTER (X) ↗</a>
               <a href="mailto:contact@aayan-sec.com" className="hover:text-[#DF491E]">EMAIL ↗</a>
+            </div>
+            <div className="mt-4">
+              <ToolsTerminal />
             </div>
           </div>
         </div>
@@ -355,23 +358,8 @@ export default function NavigationRail({ activeSection, onSelectSection }: Navig
               </div>
             </div>
 
-            {/* Barcode & Dossier Tags */}
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-10 relative flex-shrink-0 bg-[#171514] overflow-hidden" style={{ filter: 'contrast(150%)' }}>
-                <Image
-                  src="/assets/barcode.png"
-                  alt="Dossier Barcode"
-                  width={80}
-                  height={40}
-                  className="object-contain w-full h-full mix-blend-screen invert"
-                />
-              </div>
-              <div className="font-mono text-[9px] tracking-wider text-[#171514] leading-tight">
-                <div>RESEARCH / BUILD /</div>
-                <div>BREAK / SHARE</div>
-              </div>
-              <div className="w-3 h-3 bg-[#DF491E] flex-shrink-0" />
-            </div>
+            {/* Interactive Terminal Launcher in Barcode Slot */}
+            <ToolsTerminal />
 
             {/* Bottom Cross Marker */}
             <div className="flex justify-end pr-2">
