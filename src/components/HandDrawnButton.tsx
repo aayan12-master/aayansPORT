@@ -31,7 +31,7 @@ export default function HandDrawnButton({
         padding: '13px 30px',
         backgroundColor: bgColor,
         color: textColor,
-        fontFamily: "'Oswald', 'Anton', sans-serif",
+        fontFamily: 'var(--font-condensed)',
         fontWeight: 700,
         fontSize: '1.45rem',
         letterSpacing: '0.08em',

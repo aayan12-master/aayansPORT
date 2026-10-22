@@ -196,7 +196,7 @@ export default function NavigationRail({ activeSection, onSelectSection }: Navig
               <div
                 className="relative px-6 py-1.5 bg-[#ECE8DF]"
                 style={{
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: 'var(--font-mono)',
                   fontWeight: 700,
                   fontSize: '1.05rem',
                   letterSpacing: '0.12em',

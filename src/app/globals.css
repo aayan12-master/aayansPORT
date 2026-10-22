@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Caveat:wght@600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700;800;900&family=Saira+Extra+Condensed:wght@500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -16,11 +16,11 @@
   --border-gray: #BCB8B1;
   --border-dark: #171514;
 
-  /* Typography System per PRD */
-  --font-display: 'Anton', 'Bebas Neue', sans-serif;
-  --font-condensed: 'Oswald', 'Bebas Neue', sans-serif;
-  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Typography System */
+  --font-display: 'Saira Extra Condensed', sans-serif;
+  --font-condensed: 'Saira Extra Condensed', sans-serif;
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
   --font-hand: 'Caveat', cursive;
 }
 
@@ -147,3 +147,29 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Responsive Image & Focal Positioning Utilities */
+.img-fit-cover {
+  object-fit: cover;
+}
+
+.img-fit-contain {
+  object-fit: contain;
+}
+
+.img-focus-center {
+  object-position: 50% 50%;
+}
+
+.img-focus-top {
+  object-position: 50% 15%;
+}
+
+.img-focus-face {
+  object-position: 50% 25%;
+}
+
+.img-focus-bottom {
+  object-position: 50% 85%;
+}
+

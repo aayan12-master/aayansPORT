@@ -130,10 +130,6 @@ export default function SkillsSection() {
               CAPABILITIES &amp; TECHNICAL MATRIX
             </h2>
           </div>
-          <div className="font-mono text-xs text-[#5A5650] text-right">
-            <div>DOMAIN COMPETENCIES // VERIFIED CAPABILITIES</div>
-            <div>STANDARDS: OWASP ASVS • NIST • OSSTMM</div>
-          </div>
         </div>
       </div>
 

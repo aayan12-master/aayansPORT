@@ -23,7 +23,6 @@ export default function CollaborateSection() {
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
-  const [copiedPgp, setCopiedPgp] = useState(false);
 
   useEffect(() => {
     fetch('/api/settings')
@@ -41,21 +40,6 @@ export default function CollaborateSection() {
       })
       .catch((err) => console.error('Error fetching collaborate settings:', err));
   }, []);
-
-  const pgpKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: OpenPGP.js v4.10.10
-Comment: AAYAN.Sec Public Key
-
-mQENBF+1e7EBCADK1rW9j8V1L2Vp... [TRUNCATED]
-Key ID: 0x9B42F1EA
-Fingerprint: 4C2F 9E81 3B07 D4A2 88C1  77F3 9B42 F1EA 2025 AAYN
------END PGP PUBLIC KEY BLOCK-----`;
-
-  const handleCopyPgp = () => {
-    navigator.clipboard.writeText(pgpKey);
-    setCopiedPgp(true);
-    setTimeout(() => setCopiedPgp(false), 2500);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,10 +85,6 @@ Fingerprint: 4C2F 9E81 3B07 D4A2 88C1  77F3 9B42 F1EA 2025 AAYN
             <h2 className="font-display text-5xl sm:text-6xl font-extrabold tracking-tight text-[#171514]">
               SECURE COLLABORATION &amp; INQUIRY
             </h2>
-          </div>
-          <div className="font-mono text-xs text-[#5A5650] text-right">
-            <div>STATUS: AVAILABLE FOR SELECT ENGAGEMENTS</div>
-            <div>RESPONSE WINDOW: &lt; 24 HOURS</div>
           </div>
         </div>
       </div>
@@ -155,24 +135,6 @@ Fingerprint: 4C2F 9E81 3B07 D4A2 88C1  77F3 9B42 F1EA 2025 AAYN
               <a href={settings.twitter_url} target="_blank" rel="noopener noreferrer" className="font-bold text-[#171514] hover:text-[#DF491E]">
                 {settings.twitter_url.replace('https://twitter.com/', '@').replace('https://x.com/', '@')} ↗
               </a>
-            </div>
-          </div>
-
-          {/* PGP Public Key Block */}
-          <div className="border-2 border-[#171514] p-4 bg-[#171514] text-[#ECE8DF] font-mono text-xs space-y-2">
-            <div className="flex items-center justify-between border-b border-[#BCB8B1]/30 pb-1.5">
-              <span className="text-[#DF491E] font-bold">[ PGP ENCRYPTION KEY ]</span>
-              <button
-                type="button"
-                onClick={handleCopyPgp}
-                className="px-2 py-0.5 bg-[#DF491E] text-[#171514] font-bold text-[10px] uppercase hover:bg-[#c73e16] transition-colors"
-              >
-                {copiedPgp ? 'COPIED ✓' : 'COPY KEY'}
-              </button>
-            </div>
-            <div className="text-[10px] text-[#BCB8B1] break-all leading-tight">
-              KEY ID: 0x9B42F1EA | RSA 4096-bit<br />
-              FP: 4C2F 9E81 3B07 D4A2 88C1 77F3 9B42 F1EA 2025
             </div>
           </div>
         </div>

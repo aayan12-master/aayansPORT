@@ -60,11 +60,25 @@ function initSchema(db: DatabaseSync) {
       published_date TEXT NOT NULL,
       tags TEXT NOT NULL,
       external_url TEXT,
+      image_url TEXT,
+      display_order INTEGER DEFAULT 0,
       status TEXT DEFAULT 'published',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Ensure image_url and display_order columns exist if table was previously created
+  try {
+    db.exec(`ALTER TABLE research_posts ADD COLUMN image_url TEXT;`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    db.exec(`ALTER TABLE research_posts ADD COLUMN display_order INTEGER DEFAULT 0;`);
+  } catch {
+    // Column already exists
+  }
 
   // Contact submissions table
   db.exec(`

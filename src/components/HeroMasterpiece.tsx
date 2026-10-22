@@ -126,7 +126,7 @@ export default function HeroMasterpiece({ onViewResearch, onCollaborate }: HeroM
                 alt="AAYAN."
                 width={413}
                 height={112}
-                className="w-[280px] sm:w-[330px] md:w-[360px] lg:w-[330px] xl:w-[385px] 2xl:w-[413px] h-auto object-contain block drop-shadow-[0px_1px_1px_rgba(23,21,20,0.08)]"
+                className="w-[280px] sm:w-[330px] md:w-[360px] lg:w-[330px] xl:w-[385px] 2xl:w-[413px] max-w-full h-auto object-contain block drop-shadow-[0px_1px_1px_rgba(23,21,20,0.08)]"
                 priority
               />
             </h1>
@@ -217,7 +217,7 @@ export default function HeroMasterpiece({ onViewResearch, onCollaborate }: HeroM
         </div>
 
         {/* CENTER / RIGHT ARTWORK COLLAGE (Highest Visual Importance) */}
-        <div className="lg:col-span-7 relative w-full h-[560px] sm:h-[620px] md:h-[680px] lg:h-[700px] xl:h-[730px] 2xl:h-[760px] flex items-center justify-center transform lg:scale-[0.88] xl:scale-100 origin-center transition-transform">
+        <div className="lg:col-span-7 relative w-full h-[460px] min-[380px]:h-[520px] sm:h-[600px] md:h-[680px] lg:h-[700px] xl:h-[730px] 2xl:h-[760px] flex items-center justify-center transform scale-[0.72] min-[360px]:scale-[0.80] min-[400px]:scale-[0.88] sm:scale-[0.94] md:scale-100 lg:scale-[0.88] xl:scale-100 origin-center transition-transform">
           {/* Collage Composition Box with explicit width/height boundaries */}
           <div className="relative w-full h-full max-w-[700px] flex items-center justify-center">
             

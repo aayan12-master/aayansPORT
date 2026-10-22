@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { RESEARCH_CATEGORIES } from '@/lib/categories';
 
 interface DashboardStats {
   projects: { total: number; published: number; draft: number };
@@ -42,6 +43,24 @@ interface ResearchPost {
   external_url?: string;
   image_url?: string;
   status: 'published' | 'draft';
+}
+
+interface MediumImportedData {
+  title: string;
+  slug: string;
+  summary: string;
+  content: string;
+  category: string;
+  severity: 'Critical' | 'High' | 'Medium' | 'Low' | 'Info';
+  cve_id: string;
+  published_date: string;
+  tags: string;
+  author: string;
+  external_url: string;
+  image_url: string;
+  is_duplicate: boolean;
+  duplicate_id?: string | number;
+  duplicate_title?: string;
 }
 
 interface Submission {
@@ -158,6 +177,15 @@ export default function AdminPage() {
     id: string | number;
     title: string;
   } | null>(null);
+
+  // Medium Ingestion Hub states
+  const [mediumUrl, setMediumUrl] = useState('');
+  const [fetchingMedium, setFetchingMedium] = useState(false);
+  const [mediumError, setMediumError] = useState('');
+  const [importedArticle, setImportedArticle] = useState<MediumImportedData | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [savingImport, setSavingImport] = useState(false);
+  const [showContentPreview, setShowContentPreview] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -378,6 +406,108 @@ export default function AdminPage() {
       }
     } catch {
       showFeedback('error', 'Network error saving research.');
+    }
+  };
+
+  const handleFetchMediumArticle = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = mediumUrl.trim();
+    if (!trimmed) {
+      setMediumError('Please enter a Medium article URL to import.');
+      return;
+    }
+
+    setFetchingMedium(true);
+    setMediumError('');
+
+    try {
+      const res = await fetch('/api/admin/research/import-medium', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trimmed }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setMediumError(data.error || 'Failed to fetch article from Medium. Check the URL or review manually.');
+        return;
+      }
+
+      setImportedArticle(data.data);
+      setShowContentPreview(false);
+      setIsImportModalOpen(true);
+    } catch {
+      setMediumError('Network communication error with ingestion backend.');
+    } finally {
+      setFetchingMedium(false);
+    }
+  };
+
+  const handleSaveImportedArticle = async (status: 'published' | 'draft') => {
+    if (!importedArticle) return;
+    if (!importedArticle.title.trim()) {
+      showFeedback('error', 'Article title is required.');
+      return;
+    }
+    if (!importedArticle.slug.trim()) {
+      showFeedback('error', 'Article slug is required.');
+      return;
+    }
+    if (!importedArticle.summary.trim()) {
+      showFeedback('error', 'Article summary / preview excerpt is required.');
+      return;
+    }
+    if (!importedArticle.content.trim()) {
+      showFeedback('error', 'Article content body is required.');
+      return;
+    }
+
+    setSavingImport(true);
+    try {
+      const payload = {
+        title: importedArticle.title.trim(),
+        slug: importedArticle.slug.trim().toLowerCase(),
+        summary: importedArticle.summary.trim(),
+        content: importedArticle.content.trim(),
+        category: importedArticle.category || 'Web Security',
+        severity: importedArticle.severity || 'Medium',
+        cve_id: importedArticle.cve_id?.trim() || undefined,
+        published_date: importedArticle.published_date || new Date().toISOString().split('T')[0],
+        tags: importedArticle.tags || '',
+        external_url: importedArticle.external_url || undefined,
+        image_url: importedArticle.image_url || undefined,
+        status,
+      };
+
+      const res = await fetch('/api/admin/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showFeedback(
+          'success',
+          status === 'published'
+            ? `Advisory "${importedArticle.title}" published to public research section!`
+            : `Advisory "${importedArticle.title}" saved as draft (hidden from public).`
+        );
+        setIsImportModalOpen(false);
+        setImportedArticle(null);
+        setMediumUrl('');
+        // Refresh research list & stats
+        const refRes = await fetch('/api/admin/research').then((r) => r.json());
+        if (refRes.success) setResearchList(refRes.research);
+        const stRes = await fetch('/api/admin/overview').then((r) => r.json());
+        if (stRes.success) setStats(stRes.stats);
+      } else {
+        showFeedback('error', data.error || 'Failed to save research advisory.');
+      }
+    } catch {
+      showFeedback('error', 'Network error while saving imported research advisory.');
+    } finally {
+      setSavingImport(false);
     }
   };
 
@@ -1155,6 +1285,8 @@ export default function AdminPage() {
                         published_date: new Date().toISOString().split('T')[0],
                         tags: '',
                         status: 'published',
+                        image_url: '',
+                        external_url: '',
                       });
                       setIsResearchModalOpen(true);
                     }}
@@ -1162,6 +1294,95 @@ export default function AdminPage() {
                   >
                     + NEW ADVISORY
                   </button>
+                </div>
+
+                {/* Medium Article Ingestion Hub */}
+                <div className="border-2 border-[#171514] bg-[#F2EFE7] p-5 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-3">
+                    <div>
+                      <div className="font-mono text-[10px] font-bold text-[#DF491E] uppercase tracking-wider">
+                        // AUTOMATED INGESTION ENGINE
+                      </div>
+                      <h3 className="font-display text-2xl font-extrabold text-[#171514] tracking-wide mt-0.5">
+                        IMPORT RESEARCH ARTICLE FROM MEDIUM
+                      </h3>
+                    </div>
+                    <span className="font-mono text-[11px] text-[#5A5650] flex items-center gap-1.5">
+                      <span className="inline-block w-2 h-2 rounded-full bg-green-600 animate-pulse"></span>
+                      PIPELINE READY
+                    </span>
+                  </div>
+
+                  <p className="font-sans text-xs text-[#5A5650] leading-relaxed">
+                    Paste a single Medium article URL or publication link. The backend server-side ingestion engine resolves OpenGraph metadata, cover photography, author details, categorized tags, and converts the technical writeup into clean Markdown.
+                  </p>
+
+                  <form onSubmit={handleFetchMediumArticle} className="space-y-3 font-mono text-xs">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5A5650] select-none font-bold">
+                          URL:
+                        </span>
+                        <input
+                          type="url"
+                          value={mediumUrl}
+                          onChange={(e) => {
+                            setMediumUrl(e.target.value);
+                            if (mediumError) setMediumError('');
+                          }}
+                          placeholder="https://medium.com/@username/your-article-slug-or-id"
+                          disabled={fetchingMedium}
+                          className="w-full bg-[#ECE8DF] border-2 border-[#171514] pl-14 pr-3 py-2.5 text-[#171514] placeholder-[#8A857D] focus:outline-none focus:border-[#DF491E] disabled:opacity-60"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={fetchingMedium || !mediumUrl.trim()}
+                        className="px-6 py-2.5 bg-[#DF491E] hover:bg-[#C73E16] disabled:bg-[#DF491E]/50 text-[#171514] font-bold border-2 border-[#171514] tracking-wider transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0"
+                      >
+                        {fetchingMedium ? (
+                          <>
+                            <span className="animate-spin text-base leading-none">⟳</span>
+                            <span>FETCHING ARTICLE...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>FETCH ARTICLE</span>
+                            <span>→</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {mediumError && (
+                      <div className="p-3 bg-red-100 border border-red-500 text-red-900 flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2">
+                          <span className="font-bold text-red-700">[!]</span>
+                          <span className="leading-snug">{mediumError}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setMediumError('')}
+                          className="font-bold hover:text-red-700 px-1 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#5A5650]">
+                      <span className="flex items-center gap-1">
+                        <span className="text-[#DF491E]">✓</span> Direct medium.com &amp; custom publications
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-[#DF491E]">✓</span> Automatic OpenGraph cover art resolution
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-[#DF491E]">✓</span> Review &amp; Edit staging modal before saving
+                      </span>
+                    </div>
+                  </form>
                 </div>
 
                 {/* Research Table */}
@@ -1194,8 +1415,37 @@ export default function AdminPage() {
                             </span>
                           </td>
                           <td className="p-3">
-                            <div className="font-bold text-[#171514]">{r.title}</div>
-                            <div className="text-[10px] text-[#5A5650]">{r.slug}</div>
+                            <div className="flex items-center gap-2.5">
+                              {r.image_url && (
+                                <div className="w-10 h-7 border border-[#171514] overflow-hidden shrink-0 bg-[#171514]">
+                                  <img
+                                    src={r.image_url}
+                                    alt={r.title}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLElement).style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-bold text-[#171514]">{r.title}</div>
+                                <div className="text-[10px] text-[#5A5650] flex items-center gap-2">
+                                  <span>{r.slug}</span>
+                                  {r.external_url && (
+                                    <a
+                                      href={r.external_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[#DF491E] hover:underline inline-flex items-center gap-0.5"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      [SOURCE ↗]
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </td>
                           <td className="p-3 text-[#5A5650]">{r.category}</td>
                           <td className="p-3 font-semibold">{r.cve_id || '—'}</td>
@@ -1291,11 +1541,11 @@ export default function AdminPage() {
                         onChange={(e) => setEditingResearch({ ...editingResearch, category: e.target.value })}
                         className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
                       >
-                        <option value="Web Security">Web Security</option>
-                        <option value="Cloud & Recon">Cloud &amp; Recon</option>
-                        <option value="Cloud Infrastructure">Cloud Infrastructure</option>
-                        <option value="Binary & Firmware">Binary &amp; Firmware</option>
-                        <option value="API Security">API Security</option>
+                        {RESEARCH_CATEGORIES.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -1377,6 +1627,29 @@ export default function AdminPage() {
                     />
                   </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-[#171514] mb-1">FEATURED IMAGE URL (OPTIONAL)</label>
+                      <input
+                        type="url"
+                        value={editingResearch.image_url || ''}
+                        onChange={(e) => setEditingResearch({ ...editingResearch, image_url: e.target.value })}
+                        placeholder="https://..."
+                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-[#171514] mb-1">EXTERNAL REPOSITORY / SOURCE URL</label>
+                      <input
+                        type="url"
+                        value={editingResearch.external_url || ''}
+                        onChange={(e) => setEditingResearch({ ...editingResearch, external_url: e.target.value })}
+                        placeholder="https://medium.com/@... or github.com"
+                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#171514]/20">
                     <button
                       type="button"
@@ -1393,6 +1666,365 @@ export default function AdminPage() {
                     </button>
                   </div>
                 </form>
+              </div>
+            )}
+
+            {/* Medium Import Review & Staging Modal */}
+            {isImportModalOpen && importedArticle && (
+              <div className="fixed inset-0 z-50 bg-[#171514]/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+                <div className="w-full max-w-4xl bg-[#F2EFE7] border-3 border-[#171514] shadow-2xl font-mono text-xs my-8 max-h-[92vh] flex flex-col">
+                  {/* Modal Header */}
+                  <div className="p-4 sm:p-5 border-b-2 border-[#171514] bg-[#ECE8DF] flex items-center justify-between shrink-0">
+                    <div>
+                      <div className="text-[10px] font-bold text-[#DF491E] uppercase tracking-wider">
+                        // INGESTION STAGING REVIEW &amp; PUBLISH
+                      </div>
+                      <h3 className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] mt-0.5">
+                        REVIEW IMPORTED MEDIUM ARTICLE
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!savingImport) {
+                          setIsImportModalOpen(false);
+                          setImportedArticle(null);
+                        }
+                      }}
+                      disabled={savingImport}
+                      className="w-8 h-8 flex items-center justify-center border border-[#171514] bg-[#171514] text-[#ECE8DF] hover:bg-[#DF491E] hover:text-[#171514] font-bold transition-colors cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Modal Body - Scrollable */}
+                  <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+                    {/* Duplicate warning alert banner */}
+                    {importedArticle.is_duplicate && (
+                      <div className="p-3 bg-amber-100 border-2 border-amber-600 text-amber-950 flex items-start gap-3">
+                        <span className="text-amber-700 font-bold text-base leading-none">⚠</span>
+                        <div className="space-y-1">
+                          <div className="font-bold uppercase tracking-wider text-xs">
+                            POTENTIAL DUPLICATE ADVISORY DETECTED
+                          </div>
+                          <p className="text-[11px] leading-relaxed">
+                            An advisory referencing this Medium link already exists in the database:
+                            <strong className="block mt-0.5">&ldquo;{importedArticle.duplicate_title}&rdquo; (ID: {importedArticle.duplicate_id})</strong>
+                            Saving this will record it as a new advisory or update. Please ensure the title and slug are unique if creating a separate post.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Featured Image & Extracted Dossier Overview */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-[#171514] bg-[#ECE8DF]">
+                      <div className="md:col-span-1 space-y-2">
+                        <div className="font-bold text-[#DF491E] uppercase text-[10px]">// FEATURED IMAGE PREVIEW</div>
+                        {importedArticle.image_url ? (
+                          <div className="relative border border-[#171514] bg-[#171514] overflow-hidden aspect-video flex items-center justify-center">
+                            <img
+                              src={importedArticle.image_url}
+                              alt={importedArticle.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="aspect-video border border-dashed border-[#171514] bg-[#F2EFE7] flex items-center justify-center text-center p-3 text-[11px] text-[#5A5650]">
+                            No cover image detected from article OpenGraph tags.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="md:col-span-2 space-y-2.5">
+                        <div className="font-bold text-[#DF491E] uppercase text-[10px]">// INGESTION METADATA DOSSIER</div>
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          <div>
+                            <span className="text-[#5A5650] block">DETECTED AUTHOR:</span>
+                            <span className="font-bold text-[#171514]">{importedArticle.author || 'Unknown'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[#5A5650] block">PUBLICATION DATE:</span>
+                            <span className="font-bold text-[#171514]">{importedArticle.published_date}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-[#5A5650] text-[11px] block">ORIGINAL SOURCE URL:</span>
+                          <a
+                            href={importedArticle.external_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#DF491E] underline hover:text-[#171514] break-all text-[11px] font-semibold inline-flex items-center gap-1"
+                          >
+                            <span>{importedArticle.external_url}</span>
+                            <span>↗</span>
+                          </a>
+                        </div>
+
+                        <div className="pt-2 border-t border-[#171514]/20 flex items-center gap-4 text-[11px] text-[#5A5650]">
+                          <span>Extracted Word Count: ~{importedArticle.content ? importedArticle.content.split(/\s+/).length : 0} words</span>
+                          <span>Length: {importedArticle.content ? importedArticle.content.length : 0} chars</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Editable Fields */}
+                    <div className="space-y-4">
+                      {/* Title */}
+                      <div>
+                        <label className="block font-bold text-[#171514] mb-1">
+                          ARTICLE TITLE <span className="text-[#DF491E]">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={importedArticle.title}
+                          onChange={(e) => {
+                            const title = e.target.value;
+                            setImportedArticle({ ...importedArticle, title });
+                          }}
+                          required
+                          className="w-full bg-[#ECE8DF] border-2 border-[#171514] p-2.5 text-[#171514] font-bold font-sans text-sm"
+                        />
+                      </div>
+
+                      {/* Slug & Category */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">
+                            SLUG (URL KEY) <span className="text-[#DF491E]">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={importedArticle.slug}
+                            onChange={(e) =>
+                              setImportedArticle({
+                                ...importedArticle,
+                                slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'),
+                              })
+                            }
+                            required
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">CATEGORY</label>
+                          <select
+                            value={importedArticle.category}
+                            onChange={(e) =>
+                              setImportedArticle({ ...importedArticle, category: e.target.value })
+                            }
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                          >
+                            {RESEARCH_CATEGORIES.map((cat) => (
+                              <option key={cat} value={cat}>
+                                {cat}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Severity, CVE, Date */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">SEVERITY</label>
+                          <select
+                            value={importedArticle.severity}
+                            onChange={(e) =>
+                              setImportedArticle({
+                                ...importedArticle,
+                                severity: e.target.value as any,
+                              })
+                            }
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                          >
+                            <option value="Critical">Critical</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                            <option value="Info">Info</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">CVE / TRACKING ID</label>
+                          <input
+                            type="text"
+                            value={importedArticle.cve_id}
+                            onChange={(e) =>
+                              setImportedArticle({ ...importedArticle, cve_id: e.target.value })
+                            }
+                            placeholder="e.g. CVE-2024-8841 or NONE"
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">PUBLISHED DATE</label>
+                          <input
+                            type="date"
+                            value={importedArticle.published_date}
+                            onChange={(e) =>
+                              setImportedArticle({ ...importedArticle, published_date: e.target.value })
+                            }
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Image URL & External URL */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">FEATURED IMAGE URL</label>
+                          <input
+                            type="url"
+                            value={importedArticle.image_url}
+                            onChange={(e) =>
+                              setImportedArticle({ ...importedArticle, image_url: e.target.value })
+                            }
+                            placeholder="https://..."
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">ORIGINAL MEDIUM URL</label>
+                          <input
+                            type="url"
+                            value={importedArticle.external_url}
+                            onChange={(e) =>
+                              setImportedArticle({ ...importedArticle, external_url: e.target.value })
+                            }
+                            placeholder="https://medium.com/@..."
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Tags */}
+                      <div>
+                        <label className="block font-bold text-[#171514] mb-1">
+                          TAGS (COMMA-SEPARATED)
+                        </label>
+                        <input
+                          type="text"
+                          value={importedArticle.tags}
+                          onChange={(e) =>
+                            setImportedArticle({ ...importedArticle, tags: e.target.value })
+                          }
+                          placeholder="Web Security, Vulnerability, OAuth, Zero-Day"
+                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
+                        />
+                      </div>
+
+                      {/* Summary / Dossier Preview */}
+                      <div>
+                        <label className="block font-bold text-[#171514] mb-1">
+                          SUMMARY (DOSSIER PREVIEW) <span className="text-[#DF491E]">*</span>
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={importedArticle.summary}
+                          onChange={(e) =>
+                            setImportedArticle({ ...importedArticle, summary: e.target.value })
+                          }
+                          required
+                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-sans text-xs leading-relaxed"
+                        />
+                      </div>
+
+                      {/* Full Markdown Technical Content */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="font-bold text-[#171514]">
+                            FULL TECHNICAL BREAKDOWN (MARKDOWN) <span className="text-[#DF491E]">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowContentPreview(!showContentPreview)}
+                            className="px-2.5 py-1 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold text-[10px] transition-colors cursor-pointer"
+                          >
+                            {showContentPreview ? '← EDIT RAW MARKDOWN' : 'PREVIEW FORMATTED →'}
+                          </button>
+                        </div>
+
+                        {showContentPreview ? (
+                          <div className="w-full max-h-72 overflow-y-auto bg-[#ECE8DF] border-2 border-[#171514] p-4 font-sans text-xs leading-relaxed space-y-3">
+                            <div className="font-mono text-[10px] text-[#DF491E] font-bold border-b border-[#171514]/20 pb-1 flex items-center justify-between">
+                              <span>// FORMATTED DOSSIER PREVIEW</span>
+                              <span>{importedArticle.content.length} characters</span>
+                            </div>
+                            <div className="whitespace-pre-line text-[#171514] leading-relaxed">
+                              {importedArticle.content}
+                            </div>
+                          </div>
+                        ) : (
+                          <textarea
+                            rows={10}
+                            value={importedArticle.content}
+                            onChange={(e) =>
+                              setImportedArticle({ ...importedArticle, content: e.target.value })
+                            }
+                            required
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-mono text-xs leading-relaxed"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Actions Footer */}
+                  <div className="p-4 sm:p-5 border-t-2 border-[#171514] bg-[#ECE8DF] flex flex-wrap items-center justify-between gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!savingImport) {
+                          setIsImportModalOpen(false);
+                          setImportedArticle(null);
+                        }
+                      }}
+                      disabled={savingImport}
+                      className="px-4 py-2 border-2 border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors cursor-pointer"
+                    >
+                      CANCEL
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveImportedArticle('draft')}
+                        disabled={savingImport}
+                        className="px-4 py-2 border-2 border-[#171514] bg-[#ECE8DF] hover:bg-[#D7D3CB] text-[#171514] font-bold transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {savingImport ? 'SAVING...' : 'SAVE AS DRAFT'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSaveImportedArticle('published')}
+                        disabled={savingImport}
+                        className="px-5 py-2 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border-2 border-[#171514] tracking-wider transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {savingImport ? (
+                          <>
+                            <span className="animate-spin text-sm">⟳</span>
+                            <span>PUBLISHING...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>PUBLISH ADVISORY</span>
+                            <span>→</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

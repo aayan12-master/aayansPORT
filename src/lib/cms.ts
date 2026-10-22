@@ -509,6 +509,7 @@ export async function updateProject(id: string | number, updates: Partial<Projec
   const setClause = fields.map((f) => `${f} = ?`).join(', ');
   const values = fields.map((f) => {
     const v = (updates as any)[f];
+    if (v === undefined) return null;
     return typeof v === 'boolean' ? (v ? 1 : 0) : v;
   });
 
@@ -587,8 +588,8 @@ export async function createResearchPost(post: Omit<ResearchPost, 'id'>): Promis
 
   const db = getDb();
   const stmt = db.prepare(`
-    INSERT INTO research_posts (title, slug, summary, content, category, severity, cve_id, published_date, tags, external_url, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO research_posts (title, slug, summary, content, category, severity, cve_id, published_date, tags, external_url, image_url, display_order, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = stmt.run(
     post.title,
@@ -601,6 +602,8 @@ export async function createResearchPost(post: Omit<ResearchPost, 'id'>): Promis
     post.published_date,
     post.tags,
     post.external_url || null,
+    post.image_url || null,
+    post.display_order || 0,
     post.status
   );
 
@@ -608,6 +611,28 @@ export async function createResearchPost(post: Omit<ResearchPost, 'id'>): Promis
     ...post,
     id: Number(result.lastInsertRowid),
   };
+}
+
+export async function findResearchByExternalUrl(url: string): Promise<ResearchPost | null> {
+  const cleanUrl = url.trim();
+  if (!cleanUrl) return null;
+
+  if (isSupabaseConfigured) {
+    const supabase = await getSupabaseServerClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('research_posts')
+        .select('*')
+        .eq('external_url', cleanUrl)
+        .limit(1)
+        .maybeSingle();
+      if (!error && data) return data as ResearchPost;
+    }
+  }
+
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM research_posts WHERE external_url = ? LIMIT 1').get(cleanUrl) as any;
+  return row ? (row as ResearchPost) : null;
 }
 
 export async function updateResearchPost(id: string | number, updates: Partial<ResearchPost>): Promise<boolean> {
@@ -624,7 +649,10 @@ export async function updateResearchPost(id: string | number, updates: Partial<R
   if (fields.length === 0) return true;
 
   const setClause = fields.map((f) => `${f} = ?`).join(', ');
-  const values = fields.map((f) => (updates as any)[f]);
+  const values = fields.map((f) => {
+    const val = (updates as any)[f];
+    return val === undefined ? null : val;
+  });
 
   db.prepare(`UPDATE research_posts SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values, id);
   return true;

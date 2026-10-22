@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import HandDrawnFrame from './HandDrawnFrame';
+import ResponsiveImage from './ResponsiveImage';
 
 interface Project {
   id: number;
@@ -13,6 +14,7 @@ interface Project {
   category: string;
   repo_url: string;
   demo_url?: string;
+  image_url?: string;
   status: string;
   featured: number;
 }
@@ -24,9 +26,7 @@ export default function ToolsSection() {
   // Terminal state
   const [terminalInput, setTerminalInput] = useState('');
   const [terminalOutput, setTerminalOutput] = useState<string[]>([
-    'AAYAN.Sec Arsenal Terminal [v1.0-alpha]',
     'Type "help" for available security diagnostic commands.',
-    '--------------------------------------------------',
   ]);
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export default function ToolsSection() {
         setTerminalInput('');
         return;
       case 'contact':
-        res = 'Direct comms: contact@aayan-sec.com | PGP ID: 0x9B42F1EA';
+        res = 'Direct comms: contact@aayan-sec.com';
         break;
       case 'date':
         res = new Date().toUTCString();
@@ -95,10 +95,6 @@ export default function ToolsSection() {
               OFFENSIVE TOOLING &amp; ARSENAL
             </h2>
           </div>
-          <div className="font-mono text-xs text-[#5A5650] text-right">
-            <div>CUSTOM AUTOMATION &amp; EXPLOIT ENGINES</div>
-            <div>VERIFIED OPEN-SOURCE &amp; INTERNAL UTILITIES</div>
-          </div>
         </div>
       </div>
 
@@ -110,7 +106,6 @@ export default function ToolsSection() {
               <span className="w-2.5 h-2.5 rounded-full bg-[#DF491E]" />
               <span className="w-2.5 h-2.5 rounded-full bg-[#BCB8B1]" />
               <span className="w-2.5 h-2.5 rounded-full bg-[#ECE8DF]" />
-              <span className="text-xs text-[#BCB8B1] ml-2">// ARSENAL DIAGNOSTIC CONSOLE</span>
             </div>
             <span className="text-[10px] text-[#DF491E]">LIVE SHELL</span>
           </div>
@@ -163,6 +158,18 @@ export default function ToolsSection() {
                       {proj.status.toUpperCase()}
                     </span>
                   </div>
+
+                  {proj.image_url && (
+                    <div className="mb-4 border border-[#171514] overflow-hidden">
+                      <ResponsiveImage
+                        src={proj.image_url}
+                        alt={proj.title}
+                        aspectRatio="16/9"
+                        fit="cover"
+                        focalPoint="center"
+                      />
+                    </div>
+                  )}
 
                   <h3 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[#171514] mb-2">
                     {proj.title}

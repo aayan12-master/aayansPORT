@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import HandDrawnFrame from './HandDrawnFrame';
+import ResponsiveImage from './ResponsiveImage';
 
 interface ResearchDomain {
   domain_num: string;
@@ -19,8 +20,6 @@ interface MethodologyStep {
 
 export default function BackgroundSection() {
   const [about, setAbout] = useState({
-    status_badge: 'ACTIVE RESEARCHER',
-    spec_text: 'OFFENSIVE SECURITY & PENTESTING',
     bio_paragraph_1:
       'Aayan is an offensive security researcher, penetration tester, and bug bounty hunter specializing in deep-dive architectural vulnerability analysis, authentication bypasses, cloud infrastructure exploitation, and custom tooling development.',
     bio_paragraph_2:
@@ -89,8 +88,6 @@ export default function BackgroundSection() {
         if (data.success) {
           if (data.about) {
             setAbout({
-              status_badge: data.about.status_badge || 'ACTIVE RESEARCHER',
-              spec_text: data.about.spec_text || 'OFFENSIVE SECURITY & PENTESTING',
               bio_paragraph_1: data.about.bio_paragraph_1 || '',
               bio_paragraph_2: data.about.bio_paragraph_2 || '',
               motto_quote: data.about.motto_quote || 'BREAKING TO REINFORCE • RESEARCHING TO SECURE',
@@ -123,10 +120,6 @@ export default function BackgroundSection() {
             <h2 className="font-display text-5xl sm:text-6xl font-extrabold tracking-tight text-[#171514]">
               BACKGROUND &amp; OPERATIVE PROFILE
             </h2>
-          </div>
-          <div className="font-mono text-xs text-[#5A5650] text-right">
-            <div>STATUS: {about.status_badge}</div>
-            <div>SPEC: {about.spec_text}</div>
           </div>
         </div>
       </div>
@@ -174,13 +167,15 @@ export default function BackgroundSection() {
               <span>// RECON-TO-REPORT WORKFLOW</span>
               <span className="text-[#DF491E]">[ DIAGRAM 01 ]</span>
             </div>
-            <div className="relative w-full h-[220px] flex items-center justify-center">
-              <Image
+            <div className="relative w-full max-w-[320px] mx-auto h-[220px] flex items-center justify-center">
+              <ResponsiveImage
                 src="/assets/taped_paper_diag.png"
                 alt="Reconnaissance attack tree workflow"
+                fit="contain"
+                focalPoint="center"
                 width={305}
                 height={275}
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                containerClassName="bg-transparent h-full flex items-center justify-center"
                 className="mix-blend-multiply"
               />
             </div>
