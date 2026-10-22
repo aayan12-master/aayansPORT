@@ -1,0 +1,149 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Caveat:wght@600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* PRD 3.1 Fixed Color Tokens */
+  --bg-paper: #ECE8DF;
+  --bg-paper-light: #F2EFE7;
+  --text-ink: #171514;
+  --text-muted: #5A5650;
+  --accent-orange: #DF491E;
+  --accent-orange-hover: #C73E16;
+  --surface-stone: #D7D3CB;
+  --border-gray: #BCB8B1;
+  --border-dark: #171514;
+
+  /* Typography System per PRD */
+  --font-display: 'Anton', 'Bebas Neue', sans-serif;
+  --font-condensed: 'Oswald', 'Bebas Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-hand: 'Caveat', cursive;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background-color: var(--bg-paper);
+  color: var(--text-ink);
+  font-family: var(--font-sans);
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--bg-paper);
+  color: var(--text-ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(#BCB8B1 0.75px, transparent 0.75px),
+    linear-gradient(to right, rgba(188, 184, 177, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px, 48px 48px;
+}
+
+/* Custom dossier scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-paper);
+  border-left: 1px solid var(--border-gray);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-gray);
+  border: 1px solid var(--text-ink);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-orange);
+}
+
+/* Technical typography utilities */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+.font-hand {
+  font-family: var(--font-hand);
+}
+
+/* Hand-drawn button effect */
+.btn-sketch-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background-color: var(--accent-orange);
+  color: var(--text-ink);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  letter-spacing: 0.08em;
+  padding: 12px 28px;
+  position: relative;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  user-select: none;
+}
+
+.btn-sketch-primary:hover {
+  transform: translate(-1px, -1px);
+  background-color: #e35227;
+}
+
+.btn-sketch-primary:active {
+  transform: translate(1px, 1px);
+}
+
+/* Corner markers */
+.corner-cross {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--text-ink);
+  line-height: 1;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Animation utilities */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.15); }
+}
+
+.animate-pulse-dot {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
