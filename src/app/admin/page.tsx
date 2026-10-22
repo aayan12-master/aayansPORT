@@ -9,9 +9,10 @@ interface DashboardStats {
   research: { total: number; published: number; draft: number };
   skills: { totalCategories: number };
   submissions: { total: number; unread: number };
-  backend: 'supabase' | 'local_sqlite';
+  backend: 'supabase';
   lastUpdated?: string;
 }
+
 
 interface Project {
   id: string | number;
@@ -804,8 +805,9 @@ export default function AdminPage() {
               }`}
             />
             <span className="text-[10px] text-[#5A5650] uppercase">
-              {stats?.backend === 'supabase' ? 'Supabase Connected' : 'Local SQLite Active'}
+              {stats?.backend === 'supabase' ? 'Supabase Connected' : 'Supabase Disconnected'}
             </span>
+
           </div>
 
           <div className="flex items-center gap-2 pt-2">
@@ -993,8 +995,9 @@ export default function AdminPage() {
                       <div className="flex justify-between">
                         <span className="text-[#5A5650]">Storage Mode:</span>
                         <span className="font-bold text-[#171514] uppercase">
-                          {stats?.backend === 'supabase' ? 'Supabase PostgreSQL' : 'Local SQLite Fallback'}
+                          {stats?.backend === 'supabase' ? 'Supabase PostgreSQL' : 'Supabase Disconnected'}
                         </span>
+
                       </div>
                       <div className="flex justify-between">
                         <span className="text-[#5A5650]">Last Synced:</span>

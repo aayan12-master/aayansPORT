@@ -24,11 +24,12 @@ A high-fidelity, editorial security researcher portfolio, research dossier, and 
 
 ---
 
-## ⚡ Zero-Downtime Dual-Backend
+## ⚡ Supabase Cloud Architecture
 
-This portfolio features a **hybrid data architecture**:
-1. **Production (Vercel + Supabase):** When configured with Supabase credentials in environment variables, the portfolio communicates directly with PostgreSQL, Supabase Auth, and Supabase Storage with strict Row Level Security (RLS) policies.
-2. **Local Fallback (Zero Config):** When Supabase keys are not present, it automatically defaults to an embedded SQLite repository with pre-seeded data, ensuring `npm run dev` and `npm run build` never fail.
+This portfolio uses **Supabase as the sole source of truth**:
+- **Production & Development:** All research advisories, projects, skills, site content, and transmissions communicate directly with Supabase PostgreSQL with strict Row Level Security (RLS) enforcement.
+- **Fail-Safe Validation:** When Supabase environment variables are missing or misconfigured, the API and server boundaries fail clearly with descriptive diagnostic errors, preventing silent data discrepancies or state corruption.
+
 
 ---
 
@@ -148,10 +149,11 @@ npm start
 │   │   └── page.tsx             # Main dossier portfolio with sticky navigation rail
 │   ├── components/              # Editorial React Components
 │   └── lib/
-│       ├── cms.ts               # Unified CMS interface (Supabase + SQLite fallback)
+│       ├── cms.ts               # Core CMS service layer (Supabase PostgreSQL)
 │       ├── auth.ts              # Authentication & session token management
-│       ├── db.ts                # SQLite fallback database engine
+│       ├── db.ts                # Obsolete local SQLite engine (inactive)
 │       └── supabase/            # Supabase SSR and Admin clients
+
 ├── supabase/
 │   ├── migrations/              # PostgreSQL migrations & RLS policies
 │   ├── schema.sql               # Consolidated DDL schema

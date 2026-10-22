@@ -37,4 +37,9 @@ export async function getAdminSession(): Promise<{ username: string } | null> {
   return { username: verified.username };
 }
 
+export function hashPassword(password: string): string {
+  const salt = process.env.ADMIN_SALT || 'aayan_sec_salt_2025';
+  return crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+}
+
 export { COOKIE_NAME };

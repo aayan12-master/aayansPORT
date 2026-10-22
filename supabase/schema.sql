@@ -427,3 +427,12 @@ CREATE POLICY "Admin can view and manage contact submissions"
   TO authenticated
   USING (is_admin())
   WITH CHECK (is_admin());
+
+-- ==============================================================================
+-- 13. SCHEMA PERMISSIONS FOR SUPABASE ROLES
+-- ==============================================================================
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+

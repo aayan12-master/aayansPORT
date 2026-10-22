@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, hashPassword } from '@/lib/db';
 import { signToken, COOKIE_NAME } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
@@ -13,28 +12,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const db = getDb();
-    const user = db.prepare('SELECT * FROM admin_users WHERE username = ?').get(username) as {
-      id: number;
-      username: string;
-      password_hash: string;
-    } | undefined;
+    const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'aayan_sec_2025';
 
-    if (!user) {
+    if (username !== expectedUsername || password !== expectedPassword) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const inputHash = hashPassword(password);
-    if (inputHash !== user.password_hash) {
-      return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
-    }
+    const token = signToken({ username, timestamp: Date.now() });
 
-    const token = signToken({ username: user.username, timestamp: Date.now() });
 
     const response = NextResponse.json({
       success: true,
-      user: { username: user.username },
+      user: { username },
     });
+
 
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,

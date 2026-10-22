@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { createContactSubmission } from '@/lib/cms';
 
 // In-memory rate limiting map (IP -> timestamps array)
 const rateLimitMap = new Map<string, number[]>();
@@ -71,18 +71,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const db = getDb();
-    const stmt = db.prepare(`
-      INSERT INTO contact_submissions (sender_name, sender_email, subject, message, ip_address)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(name.trim(), email.trim().toLowerCase(), subject.trim(), message.trim(), ip);
+    await createContactSubmission({
+      sender_name: name.trim(),
+      sender_email: email.trim().toLowerCase(),
+      subject: subject.trim(),
+      message: message.trim(),
+      ip_address: ip,
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Transmission received. The security dossier has recorded your message.',
     });
+
   } catch (error) {
     console.error('Contact submission error:', error);
     return NextResponse.json(

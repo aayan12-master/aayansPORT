@@ -19,8 +19,12 @@ export async function GET() {
       methodology: aboutData.methodology,
       skills,
     });
-  } catch (error) {
-    console.error('Error fetching public portfolio settings:', error);
-    return NextResponse.json({ success: false, error: 'Failed to fetch settings' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Error fetching public portfolio settings:', error?.message || error);
+    return NextResponse.json(
+      { success: false, error: error?.message || 'Failed to fetch settings from Supabase' },
+      { status: 500 }
+    );
   }
 }
+
