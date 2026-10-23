@@ -3,6 +3,7 @@ import { getProjects } from '@/lib/cms';
 import { normalizeToolFromProject } from '@/lib/github';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   try {
@@ -23,7 +24,7 @@ export async function GET() {
       {
         status: 200,
         headers: {
-          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
         },
       }
     );

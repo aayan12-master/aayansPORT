@@ -133,9 +133,13 @@ function getCleanExcerpt(content?: string, summary?: string, maxChars: number = 
   return `${truncated.replace(/[,;:\s]+$/, '')}...`;
 }
 
-export default function ResearchSection() {
-  const [posts, setPosts] = useState<ResearchPost[]>([]);
-  const [loading, setLoading] = useState(true);
+export interface ResearchSectionProps {
+  initialPosts?: any[] | null;
+}
+
+export default function ResearchSection({ initialPosts }: ResearchSectionProps = {}) {
+  const [posts, setPosts] = useState<ResearchPost[]>(() => (initialPosts as ResearchPost[]) || []);
+  const [loading, setLoading] = useState(!initialPosts);
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [activePost, setActivePost] = useState<ResearchPost | null>(null);
 
@@ -145,6 +149,12 @@ export default function ResearchSection() {
   const [canScrollRight, setCanScrollRight] = useState(false);
 
   useEffect(() => {
+    if (initialPosts) {
+      setPosts(initialPosts as ResearchPost[]);
+      setLoading(false);
+      return;
+    }
+
     fetch('/api/research')
       .then((res) => res.json())
       .then((data) => {
@@ -154,7 +164,7 @@ export default function ResearchSection() {
       })
       .catch((err) => console.error('Error fetching research:', err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [initialPosts]);
 
   // 1. Calculate article count per category dynamically from published posts
   const categoryCounts = useMemo(() => {

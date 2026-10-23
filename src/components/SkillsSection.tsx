@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import type { SkillCategory } from '@/lib/cms';
 
 export interface SkillItem {
   id?: string | number;
@@ -9,6 +10,22 @@ export interface SkillItem {
   desc: string;
   skills: string[];
   tools: string[];
+}
+
+export interface SkillsSectionProps {
+  initialSkills?: SkillCategory[] | null;
+}
+
+function mapToSkillItems(raw?: SkillCategory[] | null): SkillItem[] {
+  if (!raw || !Array.isArray(raw)) return [];
+  return raw.map((s) => ({
+    id: s.id,
+    num: s.category_num,
+    title: s.category_title,
+    desc: s.description,
+    skills: s.skills || [],
+    tools: s.tools || [],
+  }));
 }
 
 export type NodeType = 'category' | 'skill' | 'tool';
@@ -209,65 +226,9 @@ export function generateConstellationNodes(
   return nodes;
 }
 
-export default function SkillsSection() {
-  const [skillCategories, setSkillCategories] = useState<SkillItem[]>([
-    {
-      num: '01',
-      title: 'WEB APPLICATION SECURITY',
-      desc: 'Deep inspection and exploitation of modern web architectures and APIs.',
-      skills: [
-        'OAuth 2.0 & OpenID Connect Bypass',
-        'Authentication State Fixation',
-        'Insecure Direct Object References (IDOR)',
-        'Server-Side Request Forgery (SSRF)',
-        'GraphQL Query Depth & Mass Assignment',
-        'Cross-Site Scripting (Contextual XSS)',
-        'SQL Injection & Blind Extraction',
-        'Race Conditions & Concurrency Flaws',
-      ],
-      tools: ['Burp Suite Professional', 'OWASP ZAP', 'Caido', 'Postman', 'ffuf'],
-    },
-    {
-      num: '02',
-      title: 'ACTIVE RECONNAISSANCE & OSINT',
-      desc: 'Automated perimeter discovery, ASN enumeration, and asset footprinting.',
-      skills: [
-        'Subdomain Permutation & Resolution',
-        'Dangling DNS & Takeover Identification',
-        'TLS Certificate Transparency Monitoring',
-        'Autonomous Surface Differential Scanning',
-        'GitHub Secret & Leak Scrapes',
-        'Cloud S3 & Storage Bucket Enumeration',
-      ],
-      tools: ['Amass', 'Subfinder', 'httpx', 'Nuclei', 'Masscan', 'naabu'],
-    },
-    {
-      num: '03',
-      title: 'CLOUD & INFRASTRUCTURE SECURITY',
-      desc: 'Assessing resilience of AWS, GCP, and Kubernetes cloud perimeters.',
-      skills: [
-        'AWS IMDSv1 / v2 SSRF Extraction',
-        'IAM Least-Privilege & Escalation Paths',
-        'Serverless Lambda / Cloudflare Edge Audits',
-        'Container Escape & Misconfiguration Analysis',
-        'VPC Peering & Network Exposure Probing',
-      ],
-      tools: ['AWS CLI', 'ScoutSuite', 'Pacu', 'Prowler', 'Docker', 'Kubectl'],
-    },
-    {
-      num: '04',
-      title: 'BINARY & REVERSE ENGINEERING',
-      desc: 'Dissecting binaries, proprietary daemons, and firmware protocols.',
-      skills: [
-        'Static & Dynamic Binary Disassembly',
-        'Memory Corruption & Heap Underflow Triage',
-        'MIPS & ARM Architecture Analysis',
-        'Custom Protocol Reverse Engineering',
-        'Binary Hardening Checks (ASLR, DEP, Canary)',
-      ],
-      tools: ['Ghidra', 'GDB / Peda / Pwndbg', 'Radare2', 'Wireshark', 'Binwalk'],
-    },
-  ]);
+export default function SkillsSection({ initialSkills }: SkillsSectionProps = {}) {
+  const [skillCategories, setSkillCategories] = useState<SkillItem[]>(() => mapToSkillItems(initialSkills));
+  const [loading, setLoading] = useState<boolean>(!initialSkills || initialSkills.length === 0);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -283,25 +244,24 @@ export default function SkillsSection() {
   // Flag to suppress click card toggle immediately following a drag
   const justDraggedRef = useRef<boolean>(false);
 
-  // Fetch live verified skills from portfolio database
+  // Synchronize live skills from props or fetch if rendered without server data
   useEffect(() => {
+    if (initialSkills) {
+      setSkillCategories(mapToSkillItems(initialSkills));
+      setLoading(false);
+      return;
+    }
+
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.skills) && data.skills.length > 0) {
-          const mapped = data.skills.map((s: any) => ({
-            id: s.id,
-            num: s.category_num,
-            title: s.category_title,
-            desc: s.description,
-            skills: s.skills || [],
-            tools: s.tools || [],
-          }));
-          setSkillCategories(mapped);
+        if (data.success && Array.isArray(data.skills)) {
+          setSkillCategories(mapToSkillItems(data.skills));
         }
       })
-      .catch((err) => console.error('Error fetching live skills:', err));
-  }, []);
+      .catch((err) => console.error('Error fetching live skills:', err))
+      .finally(() => setLoading(false));
+  }, [initialSkills]);
 
   // Compute deterministic constellation nodes
   const nodes = useMemo(() => {
@@ -597,6 +557,24 @@ export default function SkillsSection() {
               </>
             )}
           </div>
+
+          {/* Neutral Loading & Empty States */}
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center font-mono text-xs text-[#5A5650] bg-[#ECE8DF]/50 z-20 pointer-events-none">
+              <div className="flex items-center gap-2 px-4 py-2 bg-[#ECE8DF] border border-[#171514] shadow-sm">
+                <span className="text-[#DF491E] animate-spin">⟳</span>
+                <span>SYNCHRONIZING CONSTELLATION NODES...</span>
+              </div>
+            </div>
+          )}
+          {!loading && nodes.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center font-mono text-xs text-[#5A5650] z-10 pointer-events-none">
+              <div className="p-6 border border-dashed border-[#171514] text-center max-w-sm bg-[#ECE8DF]/90">
+                <div className="font-bold text-[#171514] mb-1">// NO VERIFIED SKILL DOMAINS FOUND</div>
+                <div className="text-[11px]">No published skills are currently available in the dossier.</div>
+              </div>
+            </div>
+          )}
 
           {/* User-Controlled Constellation Nodes */}
           {nodes.map((node, nodeIdx) => {

@@ -18,70 +18,109 @@ interface MethodologyStep {
   description: string;
 }
 
-export default function BackgroundSection() {
-  const [about, setAbout] = useState({
+import type { AboutContent, ResearchDomain as CmsResearchDomain, MethodologyStep as CmsMethodologyStep } from '@/lib/cms';
+
+export interface BackgroundSectionProps {
+  initialAbout?: AboutContent | null;
+  initialDomains?: ResearchDomain[] | null;
+  initialMethodology?: MethodologyStep[] | null;
+}
+
+export default function BackgroundSection({
+  initialAbout,
+  initialDomains,
+  initialMethodology,
+}: BackgroundSectionProps = {}) {
+  const [about, setAbout] = useState(() => ({
     bio_paragraph_1:
+      initialAbout?.bio_paragraph_1 ||
       'Aayan is an offensive security researcher, penetration tester, and bug bounty hunter specializing in deep-dive architectural vulnerability analysis, authentication bypasses, cloud infrastructure exploitation, and custom tooling development.',
     bio_paragraph_2:
+      initialAbout?.bio_paragraph_2 ||
       'Approaching security research with an inquisitive, adversarial mindset, the primary focus lies in dissecting complex protocols, uncovering non-intuitive logic flaws, and converting theoretical threat models into validated proof-of-concept exploits.',
-    motto_quote: 'BREAKING TO REINFORCE • RESEARCHING TO SECURE',
-  });
+    motto_quote: initialAbout?.motto_quote || 'BREAKING TO REINFORCE • RESEARCHING TO SECURE',
+  }));
 
-  const [domains, setDomains] = useState<ResearchDomain[]>([
-    {
-      domain_num: '01',
-      domain_code: 'WEB ARCHITECTURE',
-      title: 'AUTH & LOGIC FLAWS',
-      description:
-        'OAuth 2.0 / OIDC protocol state mismatches, session fixation, JWT signature exclusions, and IDOR chains across enterprise web applications.',
-    },
-    {
-      domain_num: '02',
-      domain_code: 'CLOUD ATTACK VECTORS',
-      title: 'SERVERLESS & IAM',
-      description:
-        'Dangling DNS alias takeovers, IMDSv1/v2 metadata exfiltration, over-privileged IAM roles, and AWS/Cloudflare edge compute misconfigurations.',
-    },
-    {
-      domain_num: '03',
-      domain_code: 'ACTIVE RECONNAISSANCE',
-      title: 'PERIMETER ENUMERATION',
-      description:
-        'Automated continuous surface mapping, TLS certificate stream monitoring, ASN expansion, and rapid vulnerability triage.',
-    },
-    {
-      domain_num: '04',
-      domain_code: 'REVERSE ENGINEERING',
-      title: 'BINARY & FIRMWARE',
-      description:
-        'Disassembly and decompilation of proprietary network binaries using Ghidra, memory corruption triage, and protocol analysis.',
-    },
-  ]);
+  const [domains, setDomains] = useState<ResearchDomain[]>(() =>
+    initialDomains && initialDomains.length > 0
+      ? initialDomains
+      : [
+          {
+            domain_num: '01',
+            domain_code: 'WEB ARCHITECTURE',
+            title: 'AUTH & LOGIC FLAWS',
+            description:
+              'OAuth 2.0 / OIDC protocol state mismatches, session fixation, JWT signature exclusions, and IDOR chains across enterprise web applications.',
+          },
+          {
+            domain_num: '02',
+            domain_code: 'CLOUD ATTACK VECTORS',
+            title: 'SERVERLESS & IAM',
+            description:
+              'Dangling DNS alias takeovers, IMDSv1/v2 metadata exfiltration, over-privileged IAM roles, and AWS/Cloudflare edge compute misconfigurations.',
+          },
+          {
+            domain_num: '03',
+            domain_code: 'ACTIVE RECONNAISSANCE',
+            title: 'PERIMETER ENUMERATION',
+            description:
+              'Automated continuous surface mapping, TLS certificate stream monitoring, ASN expansion, and rapid vulnerability triage.',
+          },
+          {
+            domain_num: '04',
+            domain_code: 'REVERSE ENGINEERING',
+            title: 'BINARY & FIRMWARE',
+            description:
+              'Disassembly and decompilation of proprietary network binaries using Ghidra, memory corruption triage, and protocol analysis.',
+          },
+        ]
+  );
 
-  const [methodology, setMethodology] = useState<MethodologyStep[]>([
-    {
-      step_num: '01',
-      title: 'Target Scope Definition & Threat Modeling',
-      description: 'Establishing testing boundaries, rules of engagement, and high-impact attack paths.',
-    },
-    {
-      step_num: '02',
-      title: 'Surface Enumeration & Passive OSINT',
-      description: 'Non-intrusive metadata harvesting, DNS intelligence, and technology fingerprinting.',
-    },
-    {
-      step_num: '03',
-      title: 'Active Vulnerability Probing & Exploit PoC',
-      description: 'Crafting targeted payloads, verifying business logic boundaries, and proving real security impact.',
-    },
-    {
-      step_num: '04',
-      title: 'Comprehensive Remediation Guidance',
-      description: 'Delivering clear, actionable technical reports to empower engineering teams to patch securely.',
-    },
-  ]);
+  const [methodology, setMethodology] = useState<MethodologyStep[]>(() =>
+    initialMethodology && initialMethodology.length > 0
+      ? initialMethodology
+      : [
+          {
+            step_num: '01',
+            title: 'Target Scope Definition & Threat Modeling',
+            description: 'Establishing testing boundaries, rules of engagement, and high-impact attack paths.',
+          },
+          {
+            step_num: '02',
+            title: 'Surface Enumeration & Passive OSINT',
+            description: 'Non-intrusive metadata harvesting, DNS intelligence, and technology fingerprinting.',
+          },
+          {
+            step_num: '03',
+            title: 'Active Vulnerability Probing & Exploit PoC',
+            description: 'Crafting targeted payloads, verifying business logic boundaries, and proving real security impact.',
+          },
+          {
+            step_num: '04',
+            title: 'Comprehensive Remediation Guidance',
+            description: 'Delivering clear, actionable technical reports to empower engineering teams to patch securely.',
+          },
+        ]
+  );
 
   useEffect(() => {
+    if (initialAbout || initialDomains || initialMethodology) {
+      if (initialAbout) {
+        setAbout({
+          bio_paragraph_1: initialAbout.bio_paragraph_1 || '',
+          bio_paragraph_2: initialAbout.bio_paragraph_2 || '',
+          motto_quote: initialAbout.motto_quote || 'BREAKING TO REINFORCE • RESEARCHING TO SECURE',
+        });
+      }
+      if (initialDomains && initialDomains.length > 0) {
+        setDomains(initialDomains);
+      }
+      if (initialMethodology && initialMethodology.length > 0) {
+        setMethodology(initialMethodology);
+      }
+      return;
+    }
+
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
@@ -102,7 +141,7 @@ export default function BackgroundSection() {
         }
       })
       .catch((err) => console.error('Error fetching live about settings:', err));
-  }, []);
+  }, [initialAbout, initialDomains, initialMethodology]);
 
   return (
     <section className="relative w-full min-h-screen bg-[#ECE8DF] text-[#171514] p-6 sm:p-10 lg:p-12 border-t-2 border-[#171514]">

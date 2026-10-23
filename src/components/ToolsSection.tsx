@@ -3,9 +3,13 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { GitHubTool } from '@/lib/github';
 
-export default function ToolsSection() {
-  const [tools, setTools] = useState<GitHubTool[]>([]);
-  const [loading, setLoading] = useState(true);
+export interface ToolsSectionProps {
+  initialTools?: GitHubTool[] | null;
+}
+
+export default function ToolsSection({ initialTools }: ToolsSectionProps = {}) {
+  const [tools, setTools] = useState<GitHubTool[]>(() => initialTools || []);
+  const [loading, setLoading] = useState(!initialTools);
   const [error, setError] = useState<string | null>(null);
   const [githubUser, setGithubUser] = useState<string>('aayan12-master');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -39,8 +43,14 @@ export default function ToolsSection() {
   };
 
   useEffect(() => {
+    if (initialTools) {
+      setTools(initialTools);
+      setLoading(false);
+      return;
+    }
+
     fetchTools();
-  }, []);
+  }, [initialTools]);
 
   // 1. Calculate dynamic category counts
   const categoryCounts = useMemo(() => {

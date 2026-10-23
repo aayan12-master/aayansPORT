@@ -4,7 +4,13 @@ import React, { useState, useEffect } from 'react';
 import HandDrawnFrame from './HandDrawnFrame';
 import HandDrawnButton from './HandDrawnButton';
 
-export default function CollaborateSection() {
+import type { SiteSettings } from '@/lib/cms';
+
+export interface CollaborateSectionProps {
+  initialSettings?: SiteSettings | null;
+}
+
+export default function CollaborateSection({ initialSettings }: CollaborateSectionProps = {}) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -13,18 +19,29 @@ export default function CollaborateSection() {
     honeypot: '',
   });
 
-  const [settings, setSettings] = useState({
-    contact_email: 'contact@aayan-sec.com',
-    github_url: 'https://github.com/aayan-sec',
-    linkedin_url: 'https://linkedin.com/in/aayan-sec',
-    twitter_url: 'https://twitter.com/aayan_sec',
-    status_text: 'OPEN FOR COLLABORATION',
-  });
+  const [settings, setSettings] = useState(() => ({
+    contact_email: initialSettings?.contact_email || 'contact@aayan-sec.com',
+    github_url: initialSettings?.github_url || 'https://github.com/aayan-sec',
+    linkedin_url: initialSettings?.linkedin_url || 'https://linkedin.com/in/aayan-sec',
+    twitter_url: initialSettings?.twitter_url || 'https://twitter.com/aayan_sec',
+    status_text: initialSettings?.status_text || 'OPEN FOR COLLABORATION',
+  }));
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
+    if (initialSettings) {
+      setSettings({
+        contact_email: initialSettings.contact_email || 'contact@aayan-sec.com',
+        github_url: initialSettings.github_url || 'https://github.com/aayan-sec',
+        linkedin_url: initialSettings.linkedin_url || 'https://linkedin.com/in/aayan-sec',
+        twitter_url: initialSettings.twitter_url || 'https://twitter.com/aayan_sec',
+        status_text: initialSettings.status_text || 'OPEN FOR COLLABORATION',
+      });
+      return;
+    }
+
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
@@ -39,7 +56,7 @@ export default function CollaborateSection() {
         }
       })
       .catch((err) => console.error('Error fetching collaborate settings:', err));
-  }, []);
+  }, [initialSettings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

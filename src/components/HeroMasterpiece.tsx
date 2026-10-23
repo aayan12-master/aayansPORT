@@ -5,28 +5,49 @@ import Image from 'next/image';
 import HandDrawnButton from './HandDrawnButton';
 import HandDrawnFrame from './HandDrawnFrame';
 
+import type { HeroContent } from '@/lib/cms';
+
 interface HeroMasterpieceProps {
   onViewResearch: () => void;
   onCollaborate: () => void;
+  initialHero?: HeroContent | null;
 }
 
-export default function HeroMasterpiece({ onViewResearch, onCollaborate }: HeroMasterpieceProps) {
-  const [hero, setHero] = useState({
-    brand_name: 'AAYAN.',
-    headline: 'SECURITY RESEARCHER & PENTESTER',
-    manifesto_line_1: 'EXPLORING SYSTEMS.',
-    manifesto_line_2: 'FINDING FLAWS.',
-    manifesto_line_3: 'CREATING IMPACT.',
-    status_label: 'OPEN FOR COLLABORATION',
-    status_subtext: 'Research • Bug Bounty • Projects',
-    stat_projects: '10+',
-    stat_writeups: '5+',
-    stat_curiosity: '∞',
-    quote: 'CURIOSITY ALWAYS FINDS A WAY IN.',
-    cta_text: 'VIEW MY RESEARCH',
-  });
+export default function HeroMasterpiece({ onViewResearch, onCollaborate, initialHero }: HeroMasterpieceProps) {
+  const [hero, setHero] = useState(() => ({
+    brand_name: initialHero?.brand_name || 'AAYAN.',
+    headline: initialHero?.headline || 'SECURITY RESEARCHER & PENTESTER',
+    manifesto_line_1: initialHero?.manifesto_line_1 || 'EXPLORING SYSTEMS.',
+    manifesto_line_2: initialHero?.manifesto_line_2 || 'FINDING FLAWS.',
+    manifesto_line_3: initialHero?.manifesto_line_3 || 'CREATING IMPACT.',
+    status_label: initialHero?.status_label || 'OPEN FOR COLLABORATION',
+    status_subtext: initialHero?.status_subtext || 'Research • Bug Bounty • Projects',
+    stat_projects: initialHero?.stat_projects || '10+',
+    stat_writeups: initialHero?.stat_writeups || '5+',
+    stat_curiosity: initialHero?.stat_curiosity || '∞',
+    quote: initialHero?.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
+    cta_text: initialHero?.cta_text || 'VIEW MY RESEARCH',
+  }));
 
   useEffect(() => {
+    if (initialHero) {
+      setHero({
+        brand_name: initialHero.brand_name || 'AAYAN.',
+        headline: initialHero.headline || 'SECURITY RESEARCHER & PENTESTER',
+        manifesto_line_1: initialHero.manifesto_line_1 || 'EXPLORING SYSTEMS.',
+        manifesto_line_2: initialHero.manifesto_line_2 || 'FINDING FLAWS.',
+        manifesto_line_3: initialHero.manifesto_line_3 || 'CREATING IMPACT.',
+        status_label: initialHero.status_label || 'OPEN FOR COLLABORATION',
+        status_subtext: initialHero.status_subtext || 'Research • Bug Bounty • Projects',
+        stat_projects: initialHero.stat_projects || '10+',
+        stat_writeups: initialHero.stat_writeups || '5+',
+        stat_curiosity: initialHero.stat_curiosity || '∞',
+        quote: initialHero.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
+        cta_text: initialHero.cta_text || 'VIEW MY RESEARCH',
+      });
+      return;
+    }
+
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
@@ -48,7 +69,7 @@ export default function HeroMasterpiece({ onViewResearch, onCollaborate }: HeroM
         }
       })
       .catch((err) => console.error('Error fetching live hero settings:', err));
-  }, []);
+  }, [initialHero]);
 
   return (
     <section className="relative w-full min-h-screen bg-[#ECE8DF] text-[#171514] overflow-hidden flex flex-col justify-between p-6 sm:p-8 lg:p-10 xl:p-12">
