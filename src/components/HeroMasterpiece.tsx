@@ -11,9 +11,24 @@ interface HeroMasterpieceProps {
   onViewResearch: () => void;
   onCollaborate: () => void;
   initialHero?: HeroContent | null;
+  projectsCount?: number;
+  writeupsCount?: number;
 }
 
-export default function HeroMasterpiece({ onViewResearch, onCollaborate, initialHero }: HeroMasterpieceProps) {
+export default function HeroMasterpiece({
+  onViewResearch,
+  onCollaborate,
+  initialHero,
+  projectsCount,
+  writeupsCount,
+}: HeroMasterpieceProps) {
+  const [liveProjectsCount, setLiveProjectsCount] = useState<number>(() =>
+    typeof projectsCount === 'number' ? projectsCount : 0
+  );
+  const [liveWriteupsCount, setLiveWriteupsCount] = useState<number>(() =>
+    typeof writeupsCount === 'number' ? writeupsCount : 0
+  );
+
   const [hero, setHero] = useState(() => ({
     brand_name: initialHero?.brand_name || 'AAYAN.',
     headline: initialHero?.headline || 'SECURITY RESEARCHER & PENTESTER',
@@ -22,12 +37,19 @@ export default function HeroMasterpiece({ onViewResearch, onCollaborate, initial
     manifesto_line_3: initialHero?.manifesto_line_3 || 'CREATING IMPACT.',
     status_label: initialHero?.status_label || 'OPEN FOR COLLABORATION',
     status_subtext: initialHero?.status_subtext || 'Research • Bug Bounty • Projects',
-    stat_projects: initialHero?.stat_projects || '10+',
-    stat_writeups: initialHero?.stat_writeups || '5+',
     stat_curiosity: initialHero?.stat_curiosity || '∞',
     quote: initialHero?.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
     cta_text: initialHero?.cta_text || 'VIEW MY RESEARCH',
   }));
+
+  useEffect(() => {
+    if (typeof projectsCount === 'number') {
+      setLiveProjectsCount(projectsCount);
+    }
+    if (typeof writeupsCount === 'number') {
+      setLiveWriteupsCount(writeupsCount);
+    }
+  }, [projectsCount, writeupsCount]);
 
   useEffect(() => {
     if (initialHero) {
@@ -39,8 +61,6 @@ export default function HeroMasterpiece({ onViewResearch, onCollaborate, initial
         manifesto_line_3: initialHero.manifesto_line_3 || 'CREATING IMPACT.',
         status_label: initialHero.status_label || 'OPEN FOR COLLABORATION',
         status_subtext: initialHero.status_subtext || 'Research • Bug Bounty • Projects',
-        stat_projects: initialHero.stat_projects || '10+',
-        stat_writeups: initialHero.stat_writeups || '5+',
         stat_curiosity: initialHero.stat_curiosity || '∞',
         quote: initialHero.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
         cta_text: initialHero.cta_text || 'VIEW MY RESEARCH',
@@ -51,21 +71,27 @@ export default function HeroMasterpiece({ onViewResearch, onCollaborate, initial
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.hero) {
-          setHero({
-            brand_name: data.hero.brand_name || 'AAYAN.',
-            headline: data.hero.headline || 'SECURITY RESEARCHER & PENTESTER',
-            manifesto_line_1: data.hero.manifesto_line_1 || 'EXPLORING SYSTEMS.',
-            manifesto_line_2: data.hero.manifesto_line_2 || 'FINDING FLAWS.',
-            manifesto_line_3: data.hero.manifesto_line_3 || 'CREATING IMPACT.',
-            status_label: data.hero.status_label || 'OPEN FOR COLLABORATION',
-            status_subtext: data.hero.status_subtext || 'Research • Bug Bounty • Projects',
-            stat_projects: data.hero.stat_projects || '10+',
-            stat_writeups: data.hero.stat_writeups || '5+',
-            stat_curiosity: data.hero.stat_curiosity || '∞',
-            quote: data.hero.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
-            cta_text: data.hero.cta_text || 'VIEW MY RESEARCH',
-          });
+        if (data.success) {
+          if (data.hero) {
+            setHero({
+              brand_name: data.hero.brand_name || 'AAYAN.',
+              headline: data.hero.headline || 'SECURITY RESEARCHER & PENTESTER',
+              manifesto_line_1: data.hero.manifesto_line_1 || 'EXPLORING SYSTEMS.',
+              manifesto_line_2: data.hero.manifesto_line_2 || 'FINDING FLAWS.',
+              manifesto_line_3: data.hero.manifesto_line_3 || 'CREATING IMPACT.',
+              status_label: data.hero.status_label || 'OPEN FOR COLLABORATION',
+              status_subtext: data.hero.status_subtext || 'Research • Bug Bounty • Projects',
+              stat_curiosity: data.hero.stat_curiosity || '∞',
+              quote: data.hero.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
+              cta_text: data.hero.cta_text || 'VIEW MY RESEARCH',
+            });
+          }
+          if (typeof data.projectsCount === 'number') {
+            setLiveProjectsCount(data.projectsCount);
+          }
+          if (typeof data.writeupsCount === 'number') {
+            setLiveWriteupsCount(data.writeupsCount);
+          }
         }
       })
       .catch((err) => console.error('Error fetching live hero settings:', err));
@@ -203,7 +229,7 @@ export default function HeroMasterpiece({ onViewResearch, onCollaborate, initial
             </svg>
             <div className="text-center">
               <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none">
-                {hero.stat_projects}
+                {liveProjectsCount}
               </div>
               <div className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase mt-0.5">
                 PROJECTS
@@ -212,7 +238,7 @@ export default function HeroMasterpiece({ onViewResearch, onCollaborate, initial
             <div className="text-[#BCB8B1] font-mono text-lg font-light">—</div>
             <div className="text-center">
               <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none">
-                {hero.stat_writeups}
+                {liveWriteupsCount}
               </div>
               <div className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase mt-0.5">
                 WRITE-UPS

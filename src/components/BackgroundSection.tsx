@@ -42,7 +42,7 @@ export default function BackgroundSection({
   }));
 
   const [domains, setDomains] = useState<ResearchDomain[]>(() =>
-    initialDomains && initialDomains.length > 0
+    initialDomains !== undefined && initialDomains !== null
       ? initialDomains
       : [
           {
@@ -112,7 +112,7 @@ export default function BackgroundSection({
           motto_quote: initialAbout.motto_quote || 'BREAKING TO REINFORCE • RESEARCHING TO SECURE',
         });
       }
-      if (initialDomains && initialDomains.length > 0) {
+      if (initialDomains !== undefined && initialDomains !== null) {
         setDomains(initialDomains);
       }
       if (initialMethodology && initialMethodology.length > 0) {
@@ -132,7 +132,7 @@ export default function BackgroundSection({
               motto_quote: data.about.motto_quote || 'BREAKING TO REINFORCE • RESEARCHING TO SECURE',
             });
           }
-          if (Array.isArray(data.domains) && data.domains.length > 0) {
+          if (Array.isArray(data.domains)) {
             setDomains(data.domains);
           }
           if (Array.isArray(data.methodology) && data.methodology.length > 0) {
@@ -184,18 +184,20 @@ export default function BackgroundSection({
             </div>
           </HandDrawnFrame>
 
-          {/* Research Domains Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {domains.map((d, idx) => (
-              <div key={idx} className="border border-[#171514] p-4 bg-[#F2EFE7]">
-                <div className="font-mono text-xs font-bold text-[#DF491E] mb-1">
-                  {d.domain_num} / {d.domain_code}
+          {/* Research Domains / Profile Highlights Grid */}
+          {domains.length > 0 && (
+            <div className={`grid gap-4 ${domains.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
+              {domains.map((d, idx) => (
+                <div key={idx} className="border border-[#171514] p-4 bg-[#F2EFE7]">
+                  <div className="font-mono text-xs font-bold text-[#DF491E] mb-1">
+                    {d.domain_num} / {d.domain_code}
+                  </div>
+                  <h3 className="font-display text-xl font-bold mb-2">{d.title}</h3>
+                  <p className="text-xs text-[#5A5650] leading-relaxed">{d.description}</p>
                 </div>
-                <h3 className="font-display text-xl font-bold mb-2">{d.title}</h3>
-                <p className="text-xs text-[#5A5650] leading-relaxed">{d.description}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Column: Workflow Diagram & Engagement Methodology */}

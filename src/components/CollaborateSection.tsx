@@ -119,7 +119,7 @@ export default function CollaborateSection({ initialSettings }: CollaborateSecti
             <div className="flex items-center gap-2 pt-1">
               <span className="w-3 h-3 rounded-full bg-[#DF491E] animate-pulse-dot" />
               <span className="font-mono text-xs font-bold uppercase text-[#171514]">
-                CURRENTLY OPEN TO SELECT PROJECTS
+                {settings.status_text || 'CURRENTLY OPEN TO SELECT PROJECTS'}
               </span>
             </div>
           </HandDrawnFrame>

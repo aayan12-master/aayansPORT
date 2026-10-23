@@ -141,6 +141,8 @@ export interface DashboardStats {
   };
   skills: {
     totalCategories: number;
+    totalSkills: number;
+    totalTools: number;
   };
   submissions: {
     total: number;
@@ -319,12 +321,75 @@ export async function updateResearchDomain(id: string | number, domain: Partial<
   return true;
 }
 
+export async function createResearchDomain(domain: Omit<ResearchDomain, 'id'>): Promise<ResearchDomain> {
+  const supabase = getRequiredSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('research_domains')
+    .insert({
+      domain_num: domain.domain_num,
+      domain_code: domain.domain_code,
+      title: domain.title,
+      description: domain.description,
+      display_order: domain.display_order ?? 0,
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error('[CMS] Failed to create research domain in Supabase:', error?.message);
+    throw new Error(`Failed to create research domain in Supabase: ${error?.message || 'Unknown error'}`);
+  }
+
+  return data as ResearchDomain;
+}
+
+export async function deleteResearchDomain(id: string | number): Promise<boolean> {
+  const supabase = getRequiredSupabaseAdminClient();
+  const { error } = await supabase.from('research_domains').delete().eq('id', id);
+  if (error) {
+    console.error('[CMS] Failed to delete research domain in Supabase:', error.message);
+    throw new Error(`Failed to delete research domain in Supabase: ${error.message}`);
+  }
+  return true;
+}
+
 export async function updateMethodologyStep(id: string | number, step: Partial<MethodologyStep>): Promise<boolean> {
   const supabase = getRequiredSupabaseAdminClient();
   const { error } = await supabase.from('methodology_steps').update(step).eq('id', id);
   if (error) {
     console.error('[CMS] Failed to update methodology_step in Supabase:', error.message);
     throw new Error(`Failed to update methodology step in Supabase: ${error.message}`);
+  }
+  return true;
+}
+
+export async function createMethodologyStep(step: Omit<MethodologyStep, 'id'>): Promise<MethodologyStep> {
+  const supabase = getRequiredSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('methodology_steps')
+    .insert({
+      step_num: step.step_num,
+      title: step.title,
+      description: step.description,
+      display_order: step.display_order ?? 0,
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error('[CMS] Failed to create methodology step in Supabase:', error?.message);
+    throw new Error(`Failed to create methodology step in Supabase: ${error?.message || 'Unknown error'}`);
+  }
+
+  return data as MethodologyStep;
+}
+
+export async function deleteMethodologyStep(id: string | number): Promise<boolean> {
+  const supabase = getRequiredSupabaseAdminClient();
+  const { error } = await supabase.from('methodology_steps').delete().eq('id', id);
+  if (error) {
+    console.error('[CMS] Failed to delete methodology step in Supabase:', error.message);
+    throw new Error(`Failed to delete methodology step in Supabase: ${error.message}`);
   }
   return true;
 }
@@ -773,6 +838,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   const unreadSubmissions = allSubmissions.filter((s) => s.status === 'unread').length;
 
+  const totalSkills = allSkills.reduce((acc, cat) => acc + (cat.skills ? cat.skills.length : 0), 0);
+  const totalTools = allSkills.reduce((acc, cat) => acc + (cat.tools ? cat.tools.length : 0), 0);
+
   return {
     projects: {
       total: allProjects.length,
@@ -786,6 +854,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     },
     skills: {
       totalCategories: allSkills.length,
+      totalSkills,
+      totalTools,
     },
     submissions: {
       total: allSubmissions.length,

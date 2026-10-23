@@ -28,6 +28,8 @@ export interface PortfolioClientProps {
   initialSkills?: SkillCategory[] | null;
   initialTools?: GitHubTool[] | null;
   initialResearch?: ResearchPost[] | null;
+  projectsCount?: number;
+  writeupsCount?: number;
 }
 
 export default function PortfolioClient({
@@ -39,6 +41,8 @@ export default function PortfolioClient({
   initialSkills,
   initialTools,
   initialResearch,
+  projectsCount,
+  writeupsCount,
 }: PortfolioClientProps) {
   const [activeSection, setActiveSection] = useState('overview');
   const [footerInfo, setFooterInfo] = useState(() => ({
@@ -109,6 +113,8 @@ export default function PortfolioClient({
         <div id="overview" className="w-full">
           <HeroMasterpiece
             initialHero={initialHero}
+            projectsCount={projectsCount}
+            writeupsCount={writeupsCount}
             onViewResearch={() => scrollToSection('research')}
             onCollaborate={() => scrollToSection('collaborate')}
           />
@@ -161,6 +167,7 @@ export default function PortfolioClient({
         <NavigationRail
           activeSection={activeSection}
           onSelectSection={scrollToSection}
+          settings={initialSettings}
         />
       </div>
 
@@ -169,6 +176,7 @@ export default function PortfolioClient({
         <NavigationRail
           activeSection={activeSection}
           onSelectSection={scrollToSection}
+          settings={initialSettings}
         />
       </div>
     </div>

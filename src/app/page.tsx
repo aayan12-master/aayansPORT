@@ -31,6 +31,8 @@ export default async function HomePage() {
   const research = researchRes.status === 'fulfilled' ? researchRes.value : null;
 
   const initialTools = projects ? projects.map(normalizeToolFromProject) : null;
+  const projectsCount = projects ? projects.length : 0;
+  const writeupsCount = research ? research.length : 0;
 
   return (
     <PortfolioClient
@@ -42,6 +44,8 @@ export default async function HomePage() {
       initialSkills={skills}
       initialTools={initialTools}
       initialResearch={research}
+      projectsCount={projectsCount}
+      writeupsCount={writeupsCount}
     />
   );
 }

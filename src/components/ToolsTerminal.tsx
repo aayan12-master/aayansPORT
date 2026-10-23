@@ -6,9 +6,15 @@ import type { GitHubTool } from '@/lib/github';
 
 interface ToolsTerminalProps {
   className?: string;
+  contactEmail?: string;
+  githubUrl?: string;
 }
 
-export default function ToolsTerminal({ className = '' }: ToolsTerminalProps) {
+export default function ToolsTerminal({
+  className = '',
+  contactEmail = 'contact@aayan-sec.com',
+  githubUrl,
+}: ToolsTerminalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [tools, setTools] = useState<GitHubTool[]>([]);
   const [githubUser, setGithubUser] = useState<string>('aayan12-master');
@@ -98,9 +104,11 @@ export default function ToolsTerminal({ className = '' }: ToolsTerminalProps) {
           res = 'Arsenal: ipCHv5 (Shell - Tor IP Rotation & Trace Wiper)';
         }
         break;
-      case 'github':
-        res = `Target Profile: https://github.com/${githubUser} | Repos Loaded: ${tools.length}`;
+      case 'github': {
+        const targetUrl = githubUrl || `https://github.com/${githubUser}`;
+        res = `Target Profile: ${targetUrl} | Repos Loaded: ${tools.length}`;
         break;
+      }
       case 'scan':
         res =
           '[*] Scanning target surface...\n[+] 3 open ports: 80 (HTTP), 443 (HTTPS), 8080 (Admin Portal)\n[!] Potential misconfigured OAuth redirect discovered on /oauth/callback';
@@ -113,7 +121,7 @@ export default function ToolsTerminal({ className = '' }: ToolsTerminalProps) {
         setTerminalInput('');
         return;
       case 'contact':
-        res = 'Direct comms: contact@aayan-sec.com';
+        res = `Direct comms: ${contactEmail}`;
         break;
       case 'date':
         res = new Date().toUTCString();

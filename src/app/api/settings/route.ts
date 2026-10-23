@@ -1,17 +1,29 @@
 import { NextResponse } from 'next/server';
-import { getSiteSettings, getHeroContent, getAboutContent, getSkills } from '@/lib/cms';
+import {
+  getSiteSettings,
+  getHeroContent,
+  getAboutContent,
+  getSkills,
+  getProjects,
+  getResearchPosts,
+} from '@/lib/cms';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET() {
   try {
-    const [settings, hero, aboutData, skills] = await Promise.all([
+    const [settings, hero, aboutData, skills, projects, research] = await Promise.all([
       getSiteSettings(),
       getHeroContent(),
       getAboutContent(),
       getSkills({ publishedOnly: true }),
+      getProjects({ publishedOnly: true }),
+      getResearchPosts({ publishedOnly: true }),
     ]);
+
+    const projectsCount = projects.length;
+    const writeupsCount = research.length;
 
     return NextResponse.json(
       {
@@ -22,6 +34,8 @@ export async function GET() {
         domains: aboutData.domains,
         methodology: aboutData.methodology,
         skills,
+        projectsCount,
+        writeupsCount,
       },
       {
         headers: {

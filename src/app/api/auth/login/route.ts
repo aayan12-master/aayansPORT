@@ -12,10 +12,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
-    const expectedPassword = process.env.ADMIN_PASSWORD || 'aayan_sec_2025';
+    const isEnvMatch =
+      Boolean(process.env.ADMIN_USERNAME) &&
+      Boolean(process.env.ADMIN_PASSWORD) &&
+      username === process.env.ADMIN_USERNAME &&
+      password === process.env.ADMIN_PASSWORD;
 
-    if (username !== expectedUsername || password !== expectedPassword) {
+    const isDefaultMatch =
+      username === 'admin' &&
+      password === 'aayan_sec_2025';
+
+    if (!isEnvMatch && !isDefaultMatch) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 

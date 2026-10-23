@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ToolsTerminal from './ToolsTerminal';
+import type { SiteSettings } from '@/lib/cms';
 
 interface NavigationRailProps {
   activeSection: string;
   onSelectSection: (sectionId: string) => void;
+  settings?: SiteSettings | null;
 }
 
 export const navItems = [
@@ -95,8 +97,30 @@ export const navItems = [
   },
 ];
 
-export default function NavigationRail({ activeSection, onSelectSection }: NavigationRailProps) {
+export default function NavigationRail({ activeSection, onSelectSection, settings }: NavigationRailProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentSettings, setCurrentSettings] = useState<SiteSettings | null>(settings || null);
+
+  useEffect(() => {
+    if (settings) {
+      setCurrentSettings(settings);
+      return;
+    }
+
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.settings) {
+          setCurrentSettings(data.settings);
+        }
+      })
+      .catch((err) => console.error('Error fetching settings for NavigationRail:', err));
+  }, [settings]);
+
+  const githubUrl = currentSettings?.github_url || 'https://github.com/aayan-sec';
+  const linkedinUrl = currentSettings?.linkedin_url || 'https://linkedin.com/in/aayan-sec';
+  const twitterUrl = currentSettings?.twitter_url || 'https://x.com/aayan_sec';
+  const contactEmail = currentSettings?.contact_email || 'contact@aayan-sec.com';
 
   return (
     <>
@@ -148,13 +172,13 @@ export default function NavigationRail({ activeSection, onSelectSection }: Navig
           <div className="pt-6 border-t-2 border-[#171514] mt-6">
             <div className="font-mono text-xs mb-3">// CONNECT</div>
             <div className="grid grid-cols-2 gap-2 font-mono text-xs">
-              <a href="https://github.com/aayan-sec" target="_blank" rel="noopener noreferrer" className="hover:text-[#DF491E]">GITHUB ↗</a>
-              <a href="https://linkedin.com/in/aayan-sec" target="_blank" rel="noopener noreferrer" className="hover:text-[#DF491E]">LINKEDIN ↗</a>
-              <a href="https://x.com/aayan_sec" target="_blank" rel="noopener noreferrer" className="hover:text-[#DF491E]">TWITTER (X) ↗</a>
-              <a href="mailto:contact@aayan-sec.com" className="hover:text-[#DF491E]">EMAIL ↗</a>
+              <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="hover:text-[#DF491E]">GITHUB ↗</a>
+              <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="hover:text-[#DF491E]">LINKEDIN ↗</a>
+              <a href={twitterUrl} target="_blank" rel="noopener noreferrer" className="hover:text-[#DF491E]">TWITTER (X) ↗</a>
+              <a href={`mailto:${contactEmail}`} className="hover:text-[#DF491E]">EMAIL ↗</a>
             </div>
             <div className="mt-4">
-              <ToolsTerminal />
+              <ToolsTerminal contactEmail={contactEmail} githubUrl={githubUrl} />
             </div>
           </div>
         </div>
@@ -322,7 +346,7 @@ export default function NavigationRail({ activeSection, onSelectSection }: Navig
               </div>
               <div className="flex flex-col space-y-1.5 font-mono text-[11px] font-medium tracking-wide relative z-10">
                 <a
-                  href="https://github.com/aayan-sec"
+                  href={githubUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-between hover:text-[#DF491E] transition-colors"
@@ -331,7 +355,7 @@ export default function NavigationRail({ activeSection, onSelectSection }: Navig
                   <span>↗</span>
                 </a>
                 <a
-                  href="https://linkedin.com/in/aayan-sec"
+                  href={linkedinUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-between hover:text-[#DF491E] transition-colors"
@@ -340,7 +364,7 @@ export default function NavigationRail({ activeSection, onSelectSection }: Navig
                   <span>↗</span>
                 </a>
                 <a
-                  href="https://x.com/aayan_sec"
+                  href={twitterUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-between hover:text-[#DF491E] transition-colors"
@@ -349,7 +373,7 @@ export default function NavigationRail({ activeSection, onSelectSection }: Navig
                   <span>↗</span>
                 </a>
                 <a
-                  href="mailto:contact@aayan-sec.com"
+                  href={`mailto:${contactEmail}`}
                   className="flex items-center justify-between hover:text-[#DF491E] transition-colors"
                 >
                   <span>EMAIL</span>
@@ -359,7 +383,7 @@ export default function NavigationRail({ activeSection, onSelectSection }: Navig
             </div>
 
             {/* Interactive Terminal Launcher in Barcode Slot */}
-            <ToolsTerminal />
+            <ToolsTerminal contactEmail={contactEmail} githubUrl={githubUrl} />
 
             {/* Bottom Cross Marker */}
             <div className="flex justify-end pr-2">
