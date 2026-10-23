@@ -174,10 +174,26 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
 
-  // Active navigation tab
+  // Active navigation tab (Consolidated 6-item architecture)
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'hero' | 'about' | 'research' | 'projects' | 'skills' | 'submissions' | 'settings'
+    'overview' | 'content' | 'research' | 'projects' | 'skills' | 'submissions'
   >('overview');
+
+  // Portfolio Content unified workspace sub-tab
+  const [contentSubTab, setContentSubTab] = useState<'hero' | 'profile' | 'background'>('hero');
+
+  // Baseline states for truthful unsaved-change tracking
+  const [initialHeroData, setInitialHeroData] = useState<HeroData | null>(null);
+  const [initialAboutData, setInitialAboutData] = useState<AboutData | null>(null);
+  const [initialDomains, setInitialDomains] = useState<ResearchDomain[]>([]);
+  const [initialMethodology, setInitialMethodology] = useState<MethodologyStep[]>([]);
+  const [initialSettingsData, setInitialSettingsData] = useState<SiteSettingsData | null>(null);
+
+  // Compact Table Modal States for Background & Methodology
+  const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
+  const [editingDomain, setEditingDomain] = useState<ResearchDomain | null>(null);
+  const [isMethodologyModalOpen, setIsMethodologyModalOpen] = useState(false);
+  const [editingMethodologyStep, setEditingMethodologyStep] = useState<MethodologyStep | null>(null);
 
   // Notification feedback
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -195,6 +211,39 @@ export default function AdminPage() {
   const [methodology, setMethodology] = useState<MethodologyStep[]>([]);
   const [settingsData, setSettingsData] = useState<SiteSettingsData | null>(null);
   const [loadingSection, setLoadingSection] = useState(false);
+
+  // Unsaved changes calculations
+  const isHeroDirty = useMemo(() => {
+    if (!heroData || !initialHeroData) return false;
+    return JSON.stringify(heroData) !== JSON.stringify(initialHeroData);
+  }, [heroData, initialHeroData]);
+
+  const isSettingsDirty = useMemo(() => {
+    if (!settingsData || !initialSettingsData) return false;
+    return JSON.stringify(settingsData) !== JSON.stringify(initialSettingsData);
+  }, [settingsData, initialSettingsData]);
+
+  const isAboutDirty = useMemo(() => {
+    if (!aboutData || !initialAboutData) return false;
+    return (
+      JSON.stringify(aboutData) !== JSON.stringify(initialAboutData) ||
+      JSON.stringify(domains) !== JSON.stringify(initialDomains) ||
+      JSON.stringify(methodology) !== JSON.stringify(initialMethodology)
+    );
+  }, [aboutData, initialAboutData, domains, initialDomains, methodology, initialMethodology]);
+
+  // Prevent accidental navigation with unsaved changes
+  useEffect(() => {
+    const isDirty = isHeroDirty || isSettingsDirty || isAboutDirty;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isHeroDirty, isSettingsDirty, isAboutDirty]);
 
   // Modal & Form states
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -307,17 +356,26 @@ export default function AdminPage() {
       if (projectsRes.success) setProjects(projectsRes.projects);
       if (researchRes.success) setResearchList(researchRes.research);
       if (subsRes.success) setSubmissions(subsRes.submissions);
-      if (heroRes.success) setHeroData(heroRes.hero);
+      if (heroRes.success) {
+        setHeroData(heroRes.hero);
+        setInitialHeroData(heroRes.hero);
+      }
       if (aboutRes.success) {
         setAboutData(aboutRes.about);
+        setInitialAboutData(aboutRes.about);
         setDomains(aboutRes.domains || []);
+        setInitialDomains(aboutRes.domains || []);
         setMethodology(aboutRes.methodology || []);
+        setInitialMethodology(aboutRes.methodology || []);
       }
       if (skillsRes.success) {
         setSkillsList(skillsRes.skills);
         setPersistedSkillsList(skillsRes.skills);
       }
-      if (settingsRes.success) setSettingsData(settingsRes.settings);
+      if (settingsRes.success) {
+        setSettingsData(settingsRes.settings);
+        setInitialSettingsData(settingsRes.settings);
+      }
     } catch (err) {
       console.error('Error loading admin data:', err);
       showFeedback('error', 'Failed to load some dashboard sections.');
@@ -341,7 +399,7 @@ export default function AdminPage() {
   };
 
   // ---------------------------------------------------------------------------
-  // SAVE HANDLERS
+  // SAVE HANDLERS & MODAL ACTIONS
   // ---------------------------------------------------------------------------
   const handleSaveHero = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -354,6 +412,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        setInitialHeroData({ ...heroData });
         showFeedback('success', 'Hero & Overview content updated successfully.');
       } else {
         showFeedback('error', data.error || 'Failed to save hero content.');
@@ -374,7 +433,10 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        showFeedback('success', 'Background & operative profile updated successfully.');
+        setInitialAboutData({ ...aboutData });
+        setInitialDomains([...domains]);
+        setInitialMethodology([...methodology]);
+        showFeedback('success', 'Background & methodology updated successfully.');
       } else {
         showFeedback('error', data.error || 'Failed to save background content.');
       }
@@ -383,17 +445,38 @@ export default function AdminPage() {
     }
   };
 
-  const handleAddDomain = () => {
+  // Profile Highlights Modal & Table actions
+  const handleOpenAddDomain = () => {
     const nextNum = String(domains.length + 1).padStart(2, '0');
-    const newDomain: ResearchDomain = {
+    setEditingDomain({
       id: `new-${Date.now()}`,
       domain_num: nextNum,
-      domain_code: 'NEW SPECIALIZATION',
-      title: 'Focus Area Title',
+      domain_code: '',
+      title: '',
       description: '',
-    };
-    setDomains([...domains, newDomain]);
-    showFeedback('success', 'New profile highlight card added. Click SAVE CHANGES to persist.');
+    });
+    setIsDomainModalOpen(true);
+  };
+
+  const handleOpenEditDomain = (domain: ResearchDomain) => {
+    setEditingDomain({ ...domain });
+    setIsDomainModalOpen(true);
+  };
+
+  const handleSaveDomainModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDomain) return;
+    const existsIndex = domains.findIndex((d) => d.id === editingDomain.id);
+    if (existsIndex >= 0) {
+      const updated = [...domains];
+      updated[existsIndex] = editingDomain;
+      setDomains(updated);
+    } else {
+      setDomains([...domains, editingDomain]);
+    }
+    setIsDomainModalOpen(false);
+    setEditingDomain(null);
+    showFeedback('success', 'Profile highlight updated. Click SAVE CHANGES to persist to database.');
   };
 
   const handleDeleteDomain = async (index: number) => {
@@ -434,16 +517,37 @@ export default function AdminPage() {
     setDomains(renumbered);
   };
 
-  const handleAddMethodologyStep = () => {
+  // Engagement Methodology Modal & Table actions
+  const handleOpenAddStep = () => {
     const nextNum = String(methodology.length + 1).padStart(2, '0');
-    const newStep: MethodologyStep = {
+    setEditingMethodologyStep({
       id: `new-${Date.now()}`,
       step_num: nextNum,
-      title: 'New Engagement Step',
+      title: '',
       description: '',
-    };
-    setMethodology([...methodology, newStep]);
-    showFeedback('success', 'New methodology step added. Click SAVE CHANGES to persist.');
+    });
+    setIsMethodologyModalOpen(true);
+  };
+
+  const handleOpenEditStep = (step: MethodologyStep) => {
+    setEditingMethodologyStep({ ...step });
+    setIsMethodologyModalOpen(true);
+  };
+
+  const handleSaveMethodologyModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMethodologyStep) return;
+    const existsIndex = methodology.findIndex((m) => m.id === editingMethodologyStep.id);
+    if (existsIndex >= 0) {
+      const updated = [...methodology];
+      updated[existsIndex] = editingMethodologyStep;
+      setMethodology(updated);
+    } else {
+      setMethodology([...methodology, editingMethodologyStep]);
+    }
+    setIsMethodologyModalOpen(false);
+    setEditingMethodologyStep(null);
+    showFeedback('success', 'Methodology step updated. Click SAVE CHANGES to persist to database.');
   };
 
   const handleDeleteMethodologyStep = async (index: number) => {
@@ -487,6 +591,26 @@ export default function AdminPage() {
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settingsData) return;
+
+    // Validate email
+    if (settingsData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settingsData.contact_email)) {
+      showFeedback('error', 'Invalid primary contact email address format.');
+      return;
+    }
+
+    // Validate URLs if provided
+    const urlFields = [
+      { name: 'GitHub URL', val: settingsData.github_url },
+      { name: 'LinkedIn URL', val: settingsData.linkedin_url },
+      { name: 'Twitter/X URL', val: settingsData.twitter_url },
+    ];
+    for (const f of urlFields) {
+      if (f.val && !/^https?:\/\/.+/.test(f.val)) {
+        showFeedback('error', `${f.name} must start with http:// or https://`);
+        return;
+      }
+    }
+
     try {
       const res = await fetch('/api/admin/site-settings', {
         method: 'PUT',
@@ -495,7 +619,8 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        showFeedback('success', 'Site settings & metadata updated successfully.');
+        setInitialSettingsData({ ...settingsData });
+        showFeedback('success', 'Profile & social links synchronized globally.');
       } else {
         showFeedback('error', data.error || 'Failed to save site settings.');
       }
@@ -1181,16 +1306,19 @@ export default function AdminPage() {
           {/* Nav links */}
           <nav className="space-y-1 font-mono text-xs">
             {[
-              { id: 'overview', label: 'DASHBOARD OVERVIEW', badge: null },
-              { id: 'hero', label: 'HERO & OVERVIEW', badge: null },
-              { id: 'about', label: 'BACKGROUND & ABOUT', badge: domains.length ? `${domains.length}` : null },
-              { id: 'research', label: 'RESEARCH ADVISORIES', badge: researchList.length },
-              { id: 'projects', label: 'ARSENAL & PROJECTS', badge: projects.length },
-              { id: 'skills', label: 'SKILLS MATRIX', badge: skillsList.length },
-              { id: 'settings', label: 'GLOBAL PROFILE & LINKS', badge: null },
+              { id: 'overview', label: 'DASHBOARD', badge: null },
+              {
+                id: 'content',
+                label: 'PORTFOLIO CONTENT',
+                badge: isHeroDirty || isSettingsDirty || isAboutDirty ? '●' : null,
+                isUnsaved: isHeroDirty || isSettingsDirty || isAboutDirty,
+              },
+              { id: 'research', label: 'RESEARCH', badge: researchList.length },
+              { id: 'projects', label: 'PROJECTS & TOOLS', badge: projects.length },
+              { id: 'skills', label: 'SKILLS', badge: skillsList.length },
               {
                 id: 'submissions',
-                label: 'INBOX / SUBMISSIONS',
+                label: 'INBOX',
                 badge: submissions.filter((s) => s.status === 'unread').length || null,
               },
             ].map((tab) => (
@@ -1208,7 +1336,9 @@ export default function AdminPage() {
                 {tab.badge !== null && (
                   <span
                     className={`px-1.5 py-0.5 text-[10px] ${
-                      activeTab === tab.id
+                      tab.isUnsaved
+                        ? 'bg-[#DF491E] text-[#171514] font-bold'
+                        : activeTab === tab.id
                         ? 'bg-[#DF491E] text-[#171514]'
                         : 'bg-[#171514]/10 text-[#171514]'
                     }`}
@@ -1399,14 +1529,20 @@ export default function AdminPage() {
                       </button>
 
                       <button
-                        onClick={() => setActiveTab('hero')}
+                        onClick={() => {
+                          setActiveTab('content');
+                          setContentSubTab('hero');
+                        }}
                         className="p-3 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors text-left"
                       >
                         ✎ EDIT HERO STATUS
                       </button>
 
                       <button
-                        onClick={() => setActiveTab('settings')}
+                        onClick={() => {
+                          setActiveTab('content');
+                          setContentSubTab('profile');
+                        }}
                         className="p-3 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors text-left"
                       >
                         ⚙ SITE SETTINGS
@@ -1442,447 +1578,739 @@ export default function AdminPage() {
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* 2. HERO & OVERVIEW CONTENT TAB */}
+            {/* 2. PORTFOLIO CONTENT UNIFIED WORKSPACE */}
             {/* ------------------------------------------------------------- */}
-            {activeTab === 'hero' && heroData && (
-              <form onSubmit={handleSaveHero} className="space-y-6 max-w-4xl">
-                <div className="border-b-2 border-[#171514] pb-4 flex items-center justify-between">
-                  <div>
-                    <div className="font-mono text-xs font-bold text-[#DF491E] uppercase tracking-wider">
-                      // CONTENT MODEL 01
-                    </div>
-                    <h2 className="font-display text-3xl font-extrabold text-[#171514] tracking-wide mt-1">
-                      HERO &amp; OVERVIEW MANAGEMENT
-                    </h2>
-                  </div>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold font-mono text-xs border border-[#171514] tracking-wider transition-colors cursor-pointer"
-                  >
-                    SAVE CHANGES
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs">
-                  <div className="space-y-1">
-                    <label className="font-bold text-[#171514]">BRAND HEADLINE</label>
-                    <input
-                      type="text"
-                      value={heroData.brand_name}
-                      onChange={(e) => setHeroData({ ...heroData, brand_name: e.target.value })}
-                      required
-                      className="w-full bg-[#F2EFE7] border border-[#171514] p-2.5 text-[#171514]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-[#171514]">PROFESSIONAL SUBTITLE</label>
-                    <input
-                      type="text"
-                      value={heroData.headline}
-                      onChange={(e) => setHeroData({ ...heroData, headline: e.target.value })}
-                      required
-                      className="w-full bg-[#F2EFE7] border border-[#171514] p-2.5 text-[#171514]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-[#171514]">MANIFESTO LINE 1</label>
-                    <input
-                      type="text"
-                      value={heroData.manifesto_line_1}
-                      onChange={(e) => setHeroData({ ...heroData, manifesto_line_1: e.target.value })}
-                      className="w-full bg-[#F2EFE7] border border-[#171514] p-2.5 text-[#171514]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-[#171514]">MANIFESTO LINE 2</label>
-                    <input
-                      type="text"
-                      value={heroData.manifesto_line_2}
-                      onChange={(e) => setHeroData({ ...heroData, manifesto_line_2: e.target.value })}
-                      className="w-full bg-[#F2EFE7] border border-[#171514] p-2.5 text-[#171514]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-[#171514]">MANIFESTO LINE 3</label>
-                    <input
-                      type="text"
-                      value={heroData.manifesto_line_3}
-                      onChange={(e) => setHeroData({ ...heroData, manifesto_line_3: e.target.value })}
-                      className="w-full bg-[#F2EFE7] border border-[#171514] p-2.5 text-[#171514]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-[#171514]">COLLABORATION STATUS</label>
-                    <input
-                      type="text"
-                      value={heroData.status_label}
-                      onChange={(e) => setHeroData({ ...heroData, status_label: e.target.value })}
-                      className="w-full bg-[#F2EFE7] border border-[#171514] p-2.5 text-[#171514]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-[#171514]">STATUS SUBTEXT</label>
-                    <input
-                      type="text"
-                      value={heroData.status_subtext}
-                      onChange={(e) => setHeroData({ ...heroData, status_subtext: e.target.value })}
-                      className="w-full bg-[#F2EFE7] border border-[#171514] p-2.5 text-[#171514]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-[#171514]">EDITORIAL QUOTE</label>
-                    <input
-                      type="text"
-                      value={heroData.quote}
-                      onChange={(e) => setHeroData({ ...heroData, quote: e.target.value })}
-                      className="w-full bg-[#F2EFE7] border border-[#171514] p-2.5 text-[#171514]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-[#171514]">CURIOSITY METRIC</label>
-                    <input
-                      type="text"
-                      value={heroData.stat_curiosity}
-                      onChange={(e) => setHeroData({ ...heroData, stat_curiosity: e.target.value })}
-                      placeholder="∞"
-                      className="w-full bg-[#F2EFE7] border border-[#171514] p-2.5 text-[#171514]"
-                    />
-                  </div>
-                </div>
-
-                {/* Live Calculated Hero Statistics Info Box */}
-                <div className="border border-[#171514] p-5 bg-[#F2EFE7] space-y-3 font-mono text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#DF491E] uppercase tracking-wider">
-                      // HERO STATISTICS (DERIVED LIVE FROM DATABASE)
-                    </span>
-                    <span className="text-[10px] bg-[#171514] text-[#ECE8DF] px-2 py-0.5 font-bold">
-                      AUTHORITATIVE &amp; TRUTHFUL
-                    </span>
-                  </div>
-                  <p className="text-[#5A5650] text-[11px] leading-relaxed">
-                    Hero statistics are calculated directly from published database records. They cannot be manually fabricated or hardcoded.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                    <div className="border border-[#171514] p-3 bg-[#ECE8DF] text-center">
-                      <div className="font-display text-2xl font-black text-[#171514]">
-                        {stats?.projects.published ?? 0}
-                      </div>
-                      <div className="text-[10px] text-[#5A5650] uppercase mt-0.5">
-                        Published Projects
-                      </div>
-                    </div>
-                    <div className="border border-[#171514] p-3 bg-[#ECE8DF] text-center">
-                      <div className="font-display text-2xl font-black text-[#171514]">
-                        {stats?.research.published ?? 0}
-                      </div>
-                      <div className="text-[10px] text-[#5A5650] uppercase mt-0.5">
-                        Published Write-ups
-                      </div>
-                    </div>
-                    <div className="border border-[#171514] p-3 bg-[#ECE8DF] text-center">
-                      <div className="font-display text-2xl font-black text-[#171514]">
-                        {heroData.stat_curiosity || '∞'}
-                      </div>
-                      <div className="text-[10px] text-[#5A5650] uppercase mt-0.5">
-                        Curiosity Metric
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            )}
-
-            {/* ------------------------------------------------------------- */}
-            {/* 3. BACKGROUND & ABOUT CONTENT TAB */}
-            {/* ------------------------------------------------------------- */}
-            {activeTab === 'about' && aboutData && (
-              <form onSubmit={handleSaveAbout} className="space-y-8 max-w-4xl font-mono text-xs">
-                <div className="border-b-2 border-[#171514] pb-4 flex items-center justify-between">
-                  <div>
-                    <div className="font-mono text-xs font-bold text-[#DF491E] uppercase tracking-wider">
-                      // CONTENT MODEL 02
-                    </div>
-                    <h2 className="font-display text-3xl font-extrabold text-[#171514] tracking-wide mt-1">
-                      BACKGROUND &amp; OPERATIVE PROFILE
-                    </h2>
-                  </div>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold font-mono text-xs border border-[#171514] tracking-wider transition-colors cursor-pointer"
-                  >
-                    SAVE CHANGES
-                  </button>
-                </div>
-
-                {/* Operative Bio Card */}
-                <div className="border border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
-                  <div className="font-bold text-[#DF491E] uppercase tracking-wider">// OPERATIVE BIOGRAPHY</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {activeTab === 'content' && (
+              <div className="space-y-6 max-w-5xl">
+                {/* Unified Workspace Header with Sub-Tabs */}
+                <div className="border-b-2 border-[#171514] pb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                     <div>
-                      <label className="block font-bold text-[#171514] mb-1">STATUS BADGE</label>
-                      <input
-                        type="text"
-                        value={aboutData.status_badge}
-                        onChange={(e) => setAboutData({ ...aboutData, status_badge: e.target.value })}
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2 text-[#171514]"
-                      />
+                      <div className="font-mono text-xs font-bold text-[#DF491E] uppercase tracking-wider">
+                        // UNIFIED EDITING WORKSPACE
+                      </div>
+                      <h2 className="font-display text-3xl font-extrabold text-[#171514] tracking-wide mt-1">
+                        PORTFOLIO CONTENT
+                      </h2>
                     </div>
-                    <div>
-                      <label className="block font-bold text-[#171514] mb-1">SPECIFICATION TITLE</label>
-                      <input
-                        type="text"
-                        value={aboutData.spec_text}
-                        onChange={(e) => setAboutData({ ...aboutData, spec_text: e.target.value })}
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2 text-[#171514]"
-                      />
-                    </div>
+
+                    {(isHeroDirty || isSettingsDirty || isAboutDirty) && (
+                      <div className="flex items-center gap-2 border border-[#DF491E] bg-[#DF491E]/10 px-3 py-1.5 font-mono text-xs text-[#DF491E]">
+                        <span className="w-2 h-2 rounded-full bg-[#DF491E] animate-pulse" />
+                        <span className="font-bold">UNSAVED EDITS IN WORKSPACE</span>
+                      </div>
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block font-bold text-[#171514] mb-1">PRIMARY BIOGRAPHY (PARAGRAPH 1)</label>
-                    <textarea
-                      rows={3}
-                      value={aboutData.bio_paragraph_1}
-                      onChange={(e) => setAboutData({ ...aboutData, bio_paragraph_1: e.target.value })}
-                      className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 text-[#171514] font-sans text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-[#171514] mb-1">SECONDARY PHILOSOPHY (PARAGRAPH 2)</label>
-                    <textarea
-                      rows={3}
-                      value={aboutData.bio_paragraph_2}
-                      onChange={(e) => setAboutData({ ...aboutData, bio_paragraph_2: e.target.value })}
-                      className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 text-[#171514] font-sans text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-[#171514] mb-1">MOTTO / SIGNATURE BANNER</label>
-                    <input
-                      type="text"
-                      value={aboutData.motto_quote}
-                      onChange={(e) => setAboutData({ ...aboutData, motto_quote: e.target.value })}
-                      className="w-full bg-[#ECE8DF] border border-[#171514] p-2 text-[#171514]"
-                    />
+                  {/* Sub-Tabs Selector */}
+                  <div className="flex flex-wrap gap-2 font-mono text-xs border-t border-[#171514]/20 pt-4">
+                    {[
+                      { id: 'hero', label: 'HERO & OVERVIEW', isDirty: isHeroDirty },
+                      { id: 'profile', label: 'PROFILE & SOCIAL LINKS', isDirty: isSettingsDirty },
+                      { id: 'background', label: 'BACKGROUND & METHODOLOGY', isDirty: isAboutDirty },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        id={`content-subtab-${tab.id}`}
+                        onClick={() => setContentSubTab(tab.id as any)}
+                        className={`px-4 py-2 font-bold tracking-wider border transition-all cursor-pointer flex items-center gap-2 ${
+                          contentSubTab === tab.id
+                            ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
+                            : 'bg-[#F2EFE7] text-[#171514] border-[#171514]/40 hover:border-[#171514] hover:bg-[#ECE8DF]'
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        {tab.isDirty && (
+                          <span className="w-2 h-2 rounded-full bg-[#DF491E] shrink-0" title="Unsaved changes" />
+                        )}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Profile Highlights / Focus Areas Card */}
-                <div className="border border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-3">
-                    <div>
-                      <div className="font-bold text-[#DF491E] uppercase tracking-wider">
-                        // PROFILE HIGHLIGHTS &amp; FOCUS AREAS ({domains.length})
+                {/* TAB A: HERO & OVERVIEW */}
+                {contentSubTab === 'hero' && heroData && (
+                  <form onSubmit={handleSaveHero} className="space-y-6 font-mono text-xs">
+                    <div className="border-b border-[#171514]/20 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="text-[11px] font-bold text-[#DF491E] uppercase tracking-wider">
+                          // CONTENT WORKSPACE TAB 01
+                        </div>
+                        <h3 className="font-display text-2xl font-black text-[#171514] tracking-wide mt-0.5">
+                          HERO &amp; OVERVIEW MANAGEMENT
+                        </h3>
+                        <p className="text-[11px] text-[#5A5650] mt-0.5">
+                          Brand headline, professional role, manifesto statements, and live metrics.
+                        </p>
                       </div>
-                      <div className="text-[11px] text-[#5A5650] mt-0.5">
-                        Manage research interests, core competencies, career highlights, or methodology specializations.
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleAddDomain}
-                      className="px-3 py-1.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border border-[#171514] text-xs cursor-pointer self-start sm:self-auto"
-                    >
-                      + ADD HIGHLIGHT
-                    </button>
-                  </div>
 
-                  {domains.length === 0 ? (
-                    <div className="p-6 border border-dashed border-[#171514]/40 text-center text-[#5A5650] bg-[#ECE8DF]">
-                      No profile highlights configured. Click &ldquo;+ ADD HIGHLIGHT&rdquo; to add focus areas, or leave empty.
+                      <div className="flex items-center gap-3">
+                        {isHeroDirty && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#DF491E]/10 border border-[#DF491E] text-[#DF491E] font-bold text-[10px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#DF491E] animate-pulse" />
+                            <span>UNSAVED</span>
+                          </div>
+                        )}
+                        <button
+                          type="submit"
+                          className="px-5 py-2.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border-2 border-[#171514] tracking-wider transition-colors cursor-pointer"
+                        >
+                          SAVE CHANGES
+                        </button>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {domains.map((d, idx) => (
-                        <div key={d.id || idx} className="border border-[#171514] p-4 bg-[#ECE8DF] space-y-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 flex-1">
-                              <span className="font-bold text-[#DF491E] text-xs">{d.domain_num} /</span>
+
+                    {/* Desktop Two-Column Form Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {/* Column 1: Identity & Hero Copy */}
+                      <div className="space-y-5">
+                        {/* Identity Group */}
+                        <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
+                          <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px] border-b border-[#171514]/20 pb-2">
+                            // IDENTITY DIRECTIVES
+                          </div>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block font-bold text-[#171514] mb-1">BRAND HEADLINE</label>
                               <input
                                 type="text"
-                                value={d.domain_code}
-                                onChange={(e) => {
-                                  const updated = [...domains];
-                                  updated[idx].domain_code = e.target.value;
-                                  setDomains(updated);
-                                }}
-                                placeholder="TAG (e.g. WEB ARCHITECTURE)"
-                                className="bg-transparent border-b border-[#171514]/40 font-bold text-xs uppercase px-1 py-0.5 w-48 max-w-full"
+                                value={heroData.brand_name}
+                                onChange={(e) => setHeroData({ ...heroData, brand_name: e.target.value })}
+                                required
+                                placeholder="AAYAN.SEC"
+                                className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-bold"
                               />
                             </div>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                disabled={idx === 0}
-                                onClick={() => handleMoveDomain(idx, 'up')}
-                                className="px-2 py-1 border border-[#171514] bg-[#F2EFE7] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
-                                title="Move up"
-                              >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
-                                disabled={idx === domains.length - 1}
-                                onClick={() => handleMoveDomain(idx, 'down')}
-                                className="px-2 py-1 border border-[#171514] bg-[#F2EFE7] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
-                                title="Move down"
-                              >
-                                ↓
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteDomain(idx)}
-                                className="px-2 py-1 border border-[#DF491E] bg-[#DF491E]/10 text-[#DF491E] hover:bg-[#DF491E] hover:text-[#171514] font-bold cursor-pointer ml-1"
-                                title="Delete highlight"
-                              >
-                                ✕ DELETE
-                              </button>
+                            <div>
+                              <label className="block font-bold text-[#171514] mb-1">PROFESSIONAL SUBTITLE / ROLE</label>
+                              <input
+                                type="text"
+                                value={heroData.headline}
+                                onChange={(e) => setHeroData({ ...heroData, headline: e.target.value })}
+                                required
+                                placeholder="Cybersecurity Researcher & Exploit Developer"
+                                className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                              />
                             </div>
                           </div>
+                        </div>
 
+                        {/* Hero Copy (Manifesto) */}
+                        <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
+                          <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px] border-b border-[#171514]/20 pb-2">
+                            // HERO MANIFESTO COPY
+                          </div>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block font-bold text-[#171514] mb-1">MANIFESTO LINE 1</label>
+                              <input
+                                type="text"
+                                value={heroData.manifesto_line_1}
+                                onChange={(e) => setHeroData({ ...heroData, manifesto_line_1: e.target.value })}
+                                className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold text-[#171514] mb-1">MANIFESTO LINE 2</label>
+                              <input
+                                type="text"
+                                value={heroData.manifesto_line_2}
+                                onChange={(e) => setHeroData({ ...heroData, manifesto_line_2: e.target.value })}
+                                className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold text-[#171514] mb-1">MANIFESTO LINE 3</label>
+                              <input
+                                type="text"
+                                value={heroData.manifesto_line_3}
+                                onChange={(e) => setHeroData({ ...heroData, manifesto_line_3: e.target.value })}
+                                className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Column 2: Editorial Quote, Availability & Curiosity */}
+                      <div className="space-y-5">
+                        {/* Availability Group */}
+                        <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
+                          <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px] border-b border-[#171514]/20 pb-2">
+                            // AVAILABILITY DIRECTIVES
+                          </div>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block font-bold text-[#171514] mb-1">COLLABORATION STATUS</label>
+                              <input
+                                type="text"
+                                value={heroData.status_label}
+                                onChange={(e) => setHeroData({ ...heroData, status_label: e.target.value })}
+                                placeholder="OPERATIONAL"
+                                className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-bold"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold text-[#171514] mb-1">STATUS SUBTEXT</label>
+                              <input
+                                type="text"
+                                value={heroData.status_subtext}
+                                onChange={(e) => setHeroData({ ...heroData, status_subtext: e.target.value })}
+                                placeholder="AVAILABLE FOR RED TEAM & RESEARCH"
+                                className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Editorial Quote & Symbolic Metric */}
+                        <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
+                          <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px] border-b border-[#171514]/20 pb-2">
+                            // EDITORIAL STATEMENT &amp; METRIC
+                          </div>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block font-bold text-[#171514] mb-1">EDITORIAL QUOTE</label>
+                              <textarea
+                                rows={3}
+                                value={heroData.quote}
+                                onChange={(e) => setHeroData({ ...heroData, quote: e.target.value })}
+                                placeholder="Breaching barriers with technical precision..."
+                                className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-sans text-xs"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="font-bold text-[#171514]">CURIOSITY DISPLAY METRIC</label>
+                                <span className="text-[10px] text-[#5A5650]">Configurable display symbol</span>
+                              </div>
+                              <input
+                                type="text"
+                                value={heroData.stat_curiosity}
+                                onChange={(e) => setHeroData({ ...heroData, stat_curiosity: e.target.value })}
+                                placeholder="∞"
+                                className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-bold"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live Authoritative Statistics Preview Panel Beneath Grid */}
+                    <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-3 font-mono text-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-2">
+                        <span className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px]">
+                          // LIVE STATISTICS PREVIEW (AUTHORITATIVE SUPABASE CONTENT)
+                        </span>
+                        <span className="text-[10px] bg-[#171514] text-[#ECE8DF] px-2 py-0.5 font-bold self-start sm:self-auto">
+                          AUTOMATICALLY DERIVED FROM PUBLISHED RECORDS
+                        </span>
+                      </div>
+                      <p className="text-[#5A5650] text-[11px] leading-relaxed">
+                        Project and Write-up totals reflect real published records in your Supabase database. Draft and private items are strictly excluded.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                        <div className="border border-[#171514] p-4 bg-[#ECE8DF] text-center">
+                          <div className="font-display text-3xl font-black text-[#171514]">
+                            {stats?.projects.published ?? 0}
+                          </div>
+                          <div className="text-[10px] text-[#5A5650] font-bold uppercase mt-1">
+                            PUBLISHED PROJECTS
+                          </div>
+                          <div className="text-[10px] text-[#5A5650] mt-0.5">
+                            (Drafts: {stats?.projects.draft ?? 0} excluded)
+                          </div>
+                        </div>
+                        <div className="border border-[#171514] p-4 bg-[#ECE8DF] text-center">
+                          <div className="font-display text-3xl font-black text-[#171514]">
+                            {stats?.research.published ?? 0}
+                          </div>
+                          <div className="text-[10px] text-[#5A5650] font-bold uppercase mt-1">
+                            PUBLISHED WRITE-UPS
+                          </div>
+                          <div className="text-[10px] text-[#5A5650] mt-0.5">
+                            (Drafts: {stats?.research.draft ?? 0} excluded)
+                          </div>
+                        </div>
+                        <div className="border border-[#171514] p-4 bg-[#ECE8DF] text-center">
+                          <div className="font-display text-3xl font-black text-[#171514]">
+                            {heroData.stat_curiosity || '∞'}
+                          </div>
+                          <div className="text-[10px] text-[#5A5650] font-bold uppercase mt-1">
+                            CURIOSITY METRIC
+                          </div>
+                          <div className="text-[10px] text-[#5A5650] mt-0.5">
+                            (Configured display symbol)
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+                )}
+
+                {/* TAB B: PROFILE & SOCIAL LINKS */}
+                {contentSubTab === 'profile' && settingsData && (
+                  <form onSubmit={handleSaveSettings} className="space-y-6 font-mono text-xs">
+                    <div className="border-b border-[#171514]/20 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="text-[11px] font-bold text-[#DF491E] uppercase tracking-wider">
+                          // CONTENT WORKSPACE TAB 02
+                        </div>
+                        <h3 className="font-display text-2xl font-black text-[#171514] tracking-wide mt-0.5">
+                          PROFILE &amp; SOCIAL LINKS
+                        </h3>
+                        <p className="text-[11px] text-[#5A5650] mt-0.5">
+                          Authoritative settings automatically synchronized across the entire website.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {isSettingsDirty && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#DF491E]/10 border border-[#DF491E] text-[#DF491E] font-bold text-[10px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#DF491E] animate-pulse" />
+                            <span>UNSAVED</span>
+                          </div>
+                        )}
+                        <button
+                          type="submit"
+                          className="px-5 py-2.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border-2 border-[#171514] tracking-wider transition-colors cursor-pointer"
+                        >
+                          SAVE SETTINGS
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Global Sync Notice */}
+                    <div className="border border-[#171514] p-3.5 bg-[#F2EFE7] text-[11px] flex items-center gap-3">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#DF491E] shrink-0" />
+                      <div>
+                        <strong className="text-[#171514] uppercase">Single Source of Truth:</strong> Values saved here propagate to Navigation Rail, Hero, Collaborate Section, Interactive Terminal, and Footer simultaneously.
+                      </div>
+                    </div>
+
+                    {/* Group 1: Contact & Social Channels (Two-Column Grid) */}
+                    <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
+                      <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px] border-b border-[#171514]/20 pb-2">
+                        // 1. CONTACT &amp; SOCIAL PROFILES
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">PRIMARY CONTACT EMAIL <span className="text-[#DF491E]">*</span></label>
+                          <input
+                            type="email"
+                            value={settingsData.contact_email}
+                            onChange={(e) => setSettingsData({ ...settingsData, contact_email: e.target.value })}
+                            required
+                            placeholder="contact@aayan-sec.com"
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                          />
+                          <span className="text-[10px] text-[#5A5650] mt-0.5 block">Used in Navigation Rail, Terminal &quot;contact&quot;, and Collaborate channel.</span>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">GITHUB PROFILE URL <span className="text-[#DF491E]">*</span></label>
+                          <input
+                            type="url"
+                            value={settingsData.github_url}
+                            onChange={(e) => setSettingsData({ ...settingsData, github_url: e.target.value })}
+                            required
+                            placeholder="https://github.com/aayan-sec"
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                          />
+                          <span className="text-[10px] text-[#5A5650] mt-0.5 block">Used in Navigation Rail, Terminal &quot;github&quot;, and Collaborate channel.</span>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">LINKEDIN PROFILE URL <span className="text-[#DF491E]">*</span></label>
+                          <input
+                            type="url"
+                            value={settingsData.linkedin_url}
+                            onChange={(e) => setSettingsData({ ...settingsData, linkedin_url: e.target.value })}
+                            required
+                            placeholder="https://linkedin.com/in/aayan-sec"
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                          />
+                          <span className="text-[10px] text-[#5A5650] mt-0.5 block">Used in Navigation Rail and Collaborate direct channels.</span>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">TWITTER / X PROFILE URL <span className="text-[#DF491E]">*</span></label>
+                          <input
+                            type="url"
+                            value={settingsData.twitter_url}
+                            onChange={(e) => setSettingsData({ ...settingsData, twitter_url: e.target.value })}
+                            required
+                            placeholder="https://x.com/aayan_sec"
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                          />
+                          <span className="text-[10px] text-[#5A5650] mt-0.5 block">Used in Navigation Rail and Collaborate direct channels.</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Group 2: Availability Directives */}
+                    <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
+                      <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px] border-b border-[#171514]/20 pb-2">
+                        // 2. AVAILABILITY DIRECTIVES
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">COLLABORATION STATUS TEXT</label>
+                          <input
+                            type="text"
+                            value={settingsData.status_text || ''}
+                            onChange={(e) => setSettingsData({ ...settingsData, status_text: e.target.value })}
+                            placeholder="CURRENTLY OPEN TO SELECT PROJECTS"
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                          />
+                          <span className="text-[10px] text-[#5A5650] mt-0.5 block">Displayed in Collaborate section notice banner.</span>
+                        </div>
+
+                        <div className="flex items-center pt-6 gap-3">
+                          <input
+                            type="checkbox"
+                            id="open_collab_check"
+                            checked={Boolean(settingsData.open_for_collaboration)}
+                            onChange={(e) => setSettingsData({ ...settingsData, open_for_collaboration: e.target.checked })}
+                            className="w-4 h-4 accent-[#DF491E]"
+                          />
+                          <label htmlFor="open_collab_check" className="font-bold text-[#171514] cursor-pointer">
+                            DIRECT COLLABORATION ENGAGEMENTS ENABLED
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Group 3: SEO and Branding */}
+                    <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
+                      <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px] border-b border-[#171514]/20 pb-2">
+                        // 3. SEO &amp; BRANDING CONFIGURATION
+                      </div>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-[11px] text-[#5A5650] mb-0.5 font-bold">TITLE</label>
+                            <label className="block font-bold text-[#171514] mb-1">PORTFOLIO SITE TITLE (SEO) <span className="text-[#DF491E]">*</span></label>
                             <input
                               type="text"
-                              value={d.title}
-                              onChange={(e) => {
-                                const updated = [...domains];
-                                updated[idx].title = e.target.value;
-                                setDomains(updated);
-                              }}
-                              placeholder="Highlight or specialty title"
-                              className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-xs font-bold"
+                              value={settingsData.site_title}
+                              onChange={(e) => setSettingsData({ ...settingsData, site_title: e.target.value })}
+                              required
+                              className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
                             />
                           </div>
-
                           <div>
-                            <label className="block text-[11px] text-[#5A5650] mb-0.5 font-bold">DESCRIPTION</label>
-                            <textarea
-                              rows={2}
-                              value={d.description}
-                              onChange={(e) => {
-                                const updated = [...domains];
-                                updated[idx].description = e.target.value;
-                                setDomains(updated);
-                              }}
-                              placeholder="Detailed focus area description, methodologies, and technologies"
-                              className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-[11px]"
+                            <label className="block font-bold text-[#171514] mb-1">FOOTER BRAND</label>
+                            <input
+                              type="text"
+                              value={settingsData.footer_brand}
+                              onChange={(e) => setSettingsData({ ...settingsData, footer_brand: e.target.value })}
+                              className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
                             />
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
 
-                {/* Engagement Methodology Steps Card */}
-                <div className="border border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-3">
-                    <div>
-                      <div className="font-bold text-[#DF491E] uppercase tracking-wider">
-                        // ENGAGEMENT METHODOLOGY ({methodology.length} STEPS)
-                      </div>
-                      <div className="text-[11px] text-[#5A5650] mt-0.5">
-                        Workflow stages displayed in the Background section methodology diagram.
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleAddMethodologyStep}
-                      className="px-3 py-1.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border border-[#171514] text-xs cursor-pointer self-start sm:self-auto"
-                    >
-                      + ADD STEP
-                    </button>
-                  </div>
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">PORTFOLIO META DESCRIPTION</label>
+                          <textarea
+                            rows={2}
+                            value={settingsData.site_description}
+                            onChange={(e) => setSettingsData({ ...settingsData, site_description: e.target.value })}
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-sans text-xs"
+                          />
+                        </div>
 
-                  {methodology.length === 0 ? (
-                    <div className="p-6 border border-dashed border-[#171514]/40 text-center text-[#5A5650] bg-[#ECE8DF]">
-                      No methodology steps configured. Click &ldquo;+ ADD STEP&rdquo; to add workflow stages.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {methodology.map((m, idx) => (
-                        <div key={m.id || idx} className="border border-[#171514] p-4 bg-[#ECE8DF] space-y-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-[#DF491E] text-xs">STEP {m.step_num}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                disabled={idx === 0}
-                                onClick={() => handleMoveMethodologyStep(idx, 'up')}
-                                className="px-2 py-1 border border-[#171514] bg-[#F2EFE7] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
-                                title="Move up"
-                              >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
-                                disabled={idx === methodology.length - 1}
-                                onClick={() => handleMoveMethodologyStep(idx, 'down')}
-                                className="px-2 py-1 border border-[#171514] bg-[#F2EFE7] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
-                                title="Move down"
-                              >
-                                ↓
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteMethodologyStep(idx)}
-                                className="px-2 py-1 border border-[#DF491E] bg-[#DF491E]/10 text-[#DF491E] hover:bg-[#DF491E] hover:text-[#171514] font-bold cursor-pointer ml-1"
-                                title="Delete step"
-                              >
-                                ✕ DELETE
-                              </button>
-                            </div>
-                          </div>
-
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-[11px] text-[#5A5650] mb-0.5 font-bold">PHASE TITLE</label>
+                            <label className="block font-bold text-[#171514] mb-1">FOOTER TEXT</label>
                             <input
                               type="text"
-                              value={m.title}
-                              onChange={(e) => {
-                                const updated = [...methodology];
-                                updated[idx].title = e.target.value;
-                                setMethodology(updated);
-                              }}
-                              placeholder="Phase title (e.g. Target Scope Definition & Threat Modeling)"
-                              className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-xs font-bold"
+                              value={settingsData.footer_text}
+                              onChange={(e) => setSettingsData({ ...settingsData, footer_text: e.target.value })}
+                              className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
                             />
                           </div>
-
                           <div>
-                            <label className="block text-[11px] text-[#5A5650] mb-0.5 font-bold">PHASE DESCRIPTION</label>
-                            <textarea
-                              rows={2}
-                              value={m.description}
-                              onChange={(e) => {
-                                const updated = [...methodology];
-                                updated[idx].description = e.target.value;
-                                setMethodology(updated);
-                              }}
-                              placeholder="Short phase description"
-                              className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-[11px]"
+                            <label className="block font-bold text-[#171514] mb-1">FOOTER SUBTEXT</label>
+                            <input
+                              type="text"
+                              value={settingsData.footer_subtext || ''}
+                              onChange={(e) => setSettingsData({ ...settingsData, footer_subtext: e.target.value })}
+                              placeholder="BUILT WITH PRECISION"
+                              className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
                             />
                           </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </form>
+                  </form>
+                )}
+
+                {/* TAB C: BACKGROUND & METHODOLOGY */}
+                {contentSubTab === 'background' && aboutData && (
+                  <form onSubmit={handleSaveAbout} className="space-y-6 font-mono text-xs">
+                    <div className="border-b border-[#171514]/20 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="text-[11px] font-bold text-[#DF491E] uppercase tracking-wider">
+                          // CONTENT WORKSPACE TAB 03
+                        </div>
+                        <h3 className="font-display text-2xl font-black text-[#171514] tracking-wide mt-0.5">
+                          BACKGROUND &amp; METHODOLOGY
+                        </h3>
+                        <p className="text-[11px] text-[#5A5650] mt-0.5">
+                          Operative biography, focus area highlights, and security engagement methodology.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {isAboutDirty && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#DF491E]/10 border border-[#DF491E] text-[#DF491E] font-bold text-[10px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#DF491E] animate-pulse" />
+                            <span>UNSAVED</span>
+                          </div>
+                        )}
+                        <button
+                          type="submit"
+                          className="px-5 py-2.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border-2 border-[#171514] tracking-wider transition-colors cursor-pointer"
+                        >
+                          SAVE CHANGES
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Section 1: Operative Biography */}
+                    <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
+                      <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px] border-b border-[#171514]/20 pb-2">
+                        // 1. OPERATIVE BIOGRAPHY &amp; POSITIONING
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">STATUS BADGE</label>
+                          <input
+                            type="text"
+                            value={aboutData.status_badge}
+                            onChange={(e) => setAboutData({ ...aboutData, status_badge: e.target.value })}
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-[#171514] mb-1">SPECIFICATION TITLE</label>
+                          <input
+                            type="text"
+                            value={aboutData.spec_text}
+                            onChange={(e) => setAboutData({ ...aboutData, spec_text: e.target.value })}
+                            className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-[#171514] mb-1">PRIMARY BIOGRAPHY (PARAGRAPH 1)</label>
+                        <textarea
+                          rows={3}
+                          value={aboutData.bio_paragraph_1}
+                          onChange={(e) => setAboutData({ ...aboutData, bio_paragraph_1: e.target.value })}
+                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-sans text-xs leading-relaxed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-[#171514] mb-1">SECONDARY PHILOSOPHY (PARAGRAPH 2)</label>
+                        <textarea
+                          rows={3}
+                          value={aboutData.bio_paragraph_2}
+                          onChange={(e) => setAboutData({ ...aboutData, bio_paragraph_2: e.target.value })}
+                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-sans text-xs leading-relaxed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-[#171514] mb-1">MOTTO / SIGNATURE BANNER</label>
+                        <input
+                          type="text"
+                          value={aboutData.motto_quote}
+                          onChange={(e) => setAboutData({ ...aboutData, motto_quote: e.target.value })}
+                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Section 2: Profile Highlights / Focus Areas Table */}
+                    <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-3">
+                        <div>
+                          <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px]">
+                            // 2. PROFILE HIGHLIGHTS &amp; FOCUS AREAS ({domains.length})
+                          </div>
+                          <div className="text-[11px] text-[#5A5650] mt-0.5">
+                            Compact table manager for specializations, research focus, and career highlights.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleOpenAddDomain}
+                          className="px-3.5 py-1.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border border-[#171514] text-xs cursor-pointer self-start sm:self-auto"
+                        >
+                          + ADD HIGHLIGHT
+                        </button>
+                      </div>
+
+                      <div className="border border-[#171514] bg-[#ECE8DF] overflow-x-auto">
+                        <table className="w-full text-left font-mono text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-[#171514] bg-[#171514] text-[#ECE8DF]">
+                              <th className="p-2.5 w-16 text-center">ORDER</th>
+                              <th className="p-2.5 w-36">CODE / TAG</th>
+                              <th className="p-2.5 w-48">TITLE</th>
+                              <th className="p-2.5">DESCRIPTION</th>
+                              <th className="p-2.5 w-44 text-right">ACTIONS</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {domains.length === 0 ? (
+                              <tr>
+                                <td colSpan={5} className="p-6 text-center text-[#5A5650]">
+                                  No profile highlights configured. Click &ldquo;+ ADD HIGHLIGHT&rdquo; to add a specialty area.
+                                </td>
+                              </tr>
+                            ) : (
+                              domains.map((d, idx) => (
+                                <tr key={d.id || idx} className="border-b border-[#171514]/20 hover:bg-[#F2EFE7]">
+                                  <td className="p-2.5 text-center font-bold text-[#DF491E]">{d.domain_num}</td>
+                                  <td className="p-2.5 font-bold uppercase truncate max-w-[140px]">{d.domain_code || '—'}</td>
+                                  <td className="p-2.5 font-bold truncate max-w-[180px]">{d.title}</td>
+                                  <td className="p-2.5 text-[11px] text-[#5A5650] truncate max-w-xs">{d.description || '—'}</td>
+                                  <td className="p-2.5 text-right space-x-1 whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => handleMoveDomain(idx, 'up')}
+                                      className="px-1.5 py-0.5 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
+                                      title="Move up"
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === domains.length - 1}
+                                      onClick={() => handleMoveDomain(idx, 'down')}
+                                      className="px-1.5 py-0.5 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
+                                      title="Move down"
+                                    >
+                                      ↓
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditDomain(d)}
+                                      className="px-2 py-0.5 border border-[#171514] bg-[#F2EFE7] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold cursor-pointer"
+                                    >
+                                      ✎ EDIT
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteDomain(idx)}
+                                      className="px-2 py-0.5 border border-[#DF491E] bg-[#DF491E]/10 text-[#DF491E] hover:bg-[#DF491E] hover:text-[#171514] font-bold cursor-pointer"
+                                    >
+                                      ✕
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Section 3: Engagement Methodology Table */}
+                    <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-3">
+                        <div>
+                          <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px]">
+                            // 3. ENGAGEMENT METHODOLOGY ({methodology.length} PHASES)
+                          </div>
+                          <div className="text-[11px] text-[#5A5650] mt-0.5">
+                            Compact table manager for assessment methodology workflow stages.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleOpenAddStep}
+                          className="px-3.5 py-1.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border border-[#171514] text-xs cursor-pointer self-start sm:self-auto"
+                        >
+                          + ADD STEP
+                        </button>
+                      </div>
+
+                      <div className="border border-[#171514] bg-[#ECE8DF] overflow-x-auto">
+                        <table className="w-full text-left font-mono text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-[#171514] bg-[#171514] text-[#ECE8DF]">
+                              <th className="p-2.5 w-16 text-center">STEP</th>
+                              <th className="p-2.5 w-56">PHASE TITLE</th>
+                              <th className="p-2.5">SPECIFICATION &amp; DELIVERABLES</th>
+                              <th className="p-2.5 w-44 text-right">ACTIONS</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {methodology.length === 0 ? (
+                              <tr>
+                                <td colSpan={4} className="p-6 text-center text-[#5A5650]">
+                                  No methodology steps configured. Click &ldquo;+ ADD STEP&rdquo; to add a phase.
+                                </td>
+                              </tr>
+                            ) : (
+                              methodology.map((m, idx) => (
+                                <tr key={m.id || idx} className="border-b border-[#171514]/20 hover:bg-[#F2EFE7]">
+                                  <td className="p-2.5 text-center font-bold text-[#DF491E]">{m.step_num}</td>
+                                  <td className="p-2.5 font-bold truncate max-w-[220px]">{m.title}</td>
+                                  <td className="p-2.5 text-[11px] text-[#5A5650] truncate max-w-xs">{m.description || '—'}</td>
+                                  <td className="p-2.5 text-right space-x-1 whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => handleMoveMethodologyStep(idx, 'up')}
+                                      className="px-1.5 py-0.5 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
+                                      title="Move up"
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === methodology.length - 1}
+                                      onClick={() => handleMoveMethodologyStep(idx, 'down')}
+                                      className="px-1.5 py-0.5 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
+                                      title="Move down"
+                                    >
+                                      ↓
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditStep(m)}
+                                      className="px-2 py-0.5 border border-[#171514] bg-[#F2EFE7] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold cursor-pointer"
+                                    >
+                                      ✎ EDIT
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMethodologyStep(idx)}
+                                      className="px-2 py-0.5 border border-[#DF491E] bg-[#DF491E]/10 text-[#DF491E] hover:bg-[#DF491E] hover:text-[#171514] font-bold cursor-pointer"
+                                    >
+                                      ✕
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </div>
             )}
 
             {/* ------------------------------------------------------------- */}
@@ -3483,189 +3911,177 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* ------------------------------------------------------------- */}
-            {/* 8. GLOBAL PROFILE & SOCIAL LINKS SETTINGS TAB */}
-            {/* ------------------------------------------------------------- */}
-            {activeTab === 'settings' && settingsData && (
-              <form onSubmit={handleSaveSettings} className="space-y-6 max-w-4xl font-mono text-xs">
-                <div className="border-b-2 border-[#171514] pb-4 flex items-center justify-between">
-                  <div>
-                    <div className="font-mono text-xs font-bold text-[#DF491E] uppercase tracking-wider">
-                      // AUTHORITATIVE SINGLE SOURCE OF TRUTH
-                    </div>
-                    <h2 className="font-display text-3xl font-extrabold text-[#171514] tracking-wide mt-1">
-                      GLOBAL PROFILE &amp; SOCIAL LINKS
-                    </h2>
+            {/* Modal: Add / Edit Profile Highlight */}
+            {isDomainModalOpen && editingDomain && (
+              <div className="fixed inset-0 z-50 bg-[#171514]/60 backdrop-blur-xs flex items-center justify-center p-4">
+                <form
+                  onSubmit={handleSaveDomainModal}
+                  className="w-full max-w-lg bg-[#F2EFE7] border-2 border-[#171514] p-6 space-y-4 shadow-2xl font-mono text-xs"
+                >
+                  <div className="border-b-2 border-[#171514] pb-2 flex items-center justify-between">
+                    <span className="font-bold text-[#DF491E] uppercase">
+                      {String(editingDomain.id).startsWith('new-') ? '// ADD PROFILE HIGHLIGHT' : '// EDIT PROFILE HIGHLIGHT'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDomainModalOpen(false);
+                        setEditingDomain(null);
+                      }}
+                      className="font-bold text-lg leading-none cursor-pointer"
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border border-[#171514] tracking-wider transition-colors cursor-pointer"
-                  >
-                    SAVE SETTINGS
-                  </button>
-                </div>
 
-                {/* Global Synchronization Info Banner */}
-                <div className="border border-[#171514] p-4 bg-[#F2EFE7] text-[11px] leading-relaxed text-[#171514] flex items-start gap-3">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#DF491E] mt-0.5 shrink-0 animate-pulse-dot" />
-                  <div>
-                    <strong className="text-[#171514] uppercase">Global Synchronization Active:</strong> Updating your contact channels or social links here updates all locations across the entire website simultaneously—including the Navigation Rail (desktop &amp; mobile), Hero Masterpiece, Background Section, Secure Collaborate Dossier, Interactive Terminal, and Footer.
-                  </div>
-                </div>
-
-                {/* Card 1: Shared Contact & Social Channels */}
-                <div className="border border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
-                  <div className="font-bold text-[#DF491E] uppercase tracking-wider">
-                    // 1. SHARED CONTACT &amp; SOCIAL CHANNELS
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block font-bold text-[#171514] mb-1">PRIMARY CONTACT EMAIL</label>
-                      <input
-                        type="email"
-                        value={settingsData.contact_email}
-                        onChange={(e) => setSettingsData({ ...settingsData, contact_email: e.target.value })}
-                        required
-                        placeholder="contact@aayan-sec.com"
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
-                      />
-                      <span className="text-[10px] text-[#5A5650] mt-0.5 block">Used in Navigation Rail, Terminal &quot;contact&quot; command, and Collaborate direct channels.</span>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-[#171514] mb-1">GITHUB PROFILE URL</label>
-                      <input
-                        type="url"
-                        value={settingsData.github_url}
-                        onChange={(e) => setSettingsData({ ...settingsData, github_url: e.target.value })}
-                        required
-                        placeholder="https://github.com/aayan-sec"
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
-                      />
-                      <span className="text-[10px] text-[#5A5650] mt-0.5 block">Used in Navigation Rail, Terminal &quot;github&quot; command, and Collaborate direct channels.</span>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-[#171514] mb-1">LINKEDIN PROFILE URL</label>
-                      <input
-                        type="url"
-                        value={settingsData.linkedin_url}
-                        onChange={(e) => setSettingsData({ ...settingsData, linkedin_url: e.target.value })}
-                        required
-                        placeholder="https://linkedin.com/in/aayan-sec"
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
-                      />
-                      <span className="text-[10px] text-[#5A5650] mt-0.5 block">Used in Navigation Rail and Collaborate direct channels.</span>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-[#171514] mb-1">TWITTER / X PROFILE URL</label>
-                      <input
-                        type="url"
-                        value={settingsData.twitter_url}
-                        onChange={(e) => setSettingsData({ ...settingsData, twitter_url: e.target.value })}
-                        required
-                        placeholder="https://x.com/aayan_sec"
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
-                      />
-                      <span className="text-[10px] text-[#5A5650] mt-0.5 block">Used in Navigation Rail and Collaborate direct channels.</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 2: Collaboration Directives */}
-                <div className="border border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
-                  <div className="font-bold text-[#DF491E] uppercase tracking-wider">
-                    // 2. AVAILABILITY &amp; COLLABORATION DIRECTIVES
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block font-bold text-[#171514] mb-1">COLLABORATION STATUS TEXT</label>
+                      <label className="block font-bold text-[#171514] mb-1">ORDER NUMBER</label>
                       <input
                         type="text"
-                        value={settingsData.status_text || ''}
-                        onChange={(e) => setSettingsData({ ...settingsData, status_text: e.target.value })}
-                        placeholder="CURRENTLY OPEN TO SELECT PROJECTS"
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                        value={editingDomain.domain_num}
+                        onChange={(e) => setEditingDomain({ ...editingDomain, domain_num: e.target.value })}
+                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2 font-bold"
                       />
-                      <span className="text-[10px] text-[#5A5650] mt-0.5 block">Displayed in Collaborate section engagement notice banner.</span>
                     </div>
-
-                    <div className="flex items-center pt-6 gap-3">
+                    <div>
+                      <label className="block font-bold text-[#171514] mb-1">CODE / TAG</label>
                       <input
-                        type="checkbox"
-                        id="open_collab_check"
-                        checked={Boolean(settingsData.open_for_collaboration)}
-                        onChange={(e) => setSettingsData({ ...settingsData, open_for_collaboration: e.target.checked })}
-                        className="w-4 h-4 accent-[#DF491E]"
+                        type="text"
+                        value={editingDomain.domain_code}
+                        onChange={(e) => setEditingDomain({ ...editingDomain, domain_code: e.target.value.toUpperCase() })}
+                        placeholder="e.g. WEB ARCHITECTURE"
+                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2 font-bold uppercase"
                       />
-                      <label htmlFor="open_collab_check" className="font-bold text-[#171514] cursor-pointer">
-                        OPEN FOR DIRECT CLIENT COLLABORATION
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-[#171514] mb-1">
+                      HIGHLIGHT TITLE <span className="text-[#DF491E]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editingDomain.title}
+                      onChange={(e) => setEditingDomain({ ...editingDomain, title: e.target.value })}
+                      required
+                      placeholder="Specialty or Focus Area Title"
+                      className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-[#171514] mb-1">DETAILED SPECIFICATION &amp; METHODOLOGY</label>
+                    <textarea
+                      rows={4}
+                      value={editingDomain.description}
+                      onChange={(e) => setEditingDomain({ ...editingDomain, description: e.target.value })}
+                      placeholder="Detailed focus area description, methodologies, toolsets, and competencies"
+                      className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-sans text-xs leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#171514]/20">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDomainModalOpen(false);
+                        setEditingDomain(null);
+                      }}
+                      className="px-4 py-2 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors cursor-pointer"
+                    >
+                      CANCEL
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#DF491E] text-[#171514] font-bold border border-[#171514] hover:bg-[#C73E16] transition-colors cursor-pointer"
+                    >
+                      APPLY HIGHLIGHT →
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Modal: Add / Edit Methodology Step */}
+            {isMethodologyModalOpen && editingMethodologyStep && (
+              <div className="fixed inset-0 z-50 bg-[#171514]/60 backdrop-blur-xs flex items-center justify-center p-4">
+                <form
+                  onSubmit={handleSaveMethodologyModal}
+                  className="w-full max-w-lg bg-[#F2EFE7] border-2 border-[#171514] p-6 space-y-4 shadow-2xl font-mono text-xs"
+                >
+                  <div className="border-b-2 border-[#171514] pb-2 flex items-center justify-between">
+                    <span className="font-bold text-[#DF491E] uppercase">
+                      {String(editingMethodologyStep.id).startsWith('new-') ? '// ADD METHODOLOGY STEP' : '// EDIT METHODOLOGY STEP'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMethodologyModalOpen(false);
+                        setEditingMethodologyStep(null);
+                      }}
+                      className="font-bold text-lg leading-none cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-bold text-[#171514] mb-1">STEP #</label>
+                      <input
+                        type="text"
+                        value={editingMethodologyStep.step_num}
+                        onChange={(e) => setEditingMethodologyStep({ ...editingMethodologyStep, step_num: e.target.value })}
+                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2 font-bold"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block font-bold text-[#171514] mb-1">
+                        PHASE TITLE <span className="text-[#DF491E]">*</span>
                       </label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 3: Global Metadata & Footer Brand */}
-                <div className="border border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
-                  <div className="font-bold text-[#DF491E] uppercase tracking-wider">
-                    // 3. GLOBAL METADATA &amp; FOOTER BRANDING
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block font-bold text-[#171514] mb-1">PORTFOLIO SITE TITLE (SEO)</label>
                       <input
                         type="text"
-                        value={settingsData.site_title}
-                        onChange={(e) => setSettingsData({ ...settingsData, site_title: e.target.value })}
+                        value={editingMethodologyStep.title}
+                        onChange={(e) => setEditingMethodologyStep({ ...editingMethodologyStep, title: e.target.value })}
                         required
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
+                        placeholder="e.g. Threat Modeling & Scope Discovery"
+                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2 font-bold"
                       />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-[#171514] mb-1">PORTFOLIO META DESCRIPTION</label>
-                      <textarea
-                        rows={2}
-                        value={settingsData.site_description}
-                        onChange={(e) => setSettingsData({ ...settingsData, site_description: e.target.value })}
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block font-bold text-[#171514] mb-1">FOOTER BRAND</label>
-                        <input
-                          type="text"
-                          value={settingsData.footer_brand}
-                          onChange={(e) => setSettingsData({ ...settingsData, footer_brand: e.target.value })}
-                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-bold text-[#171514] mb-1">FOOTER TEXT</label>
-                        <input
-                          type="text"
-                          value={settingsData.footer_text}
-                          onChange={(e) => setSettingsData({ ...settingsData, footer_text: e.target.value })}
-                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-bold text-[#171514] mb-1">FOOTER SUBTEXT</label>
-                        <input
-                          type="text"
-                          value={settingsData.footer_subtext || ''}
-                          onChange={(e) => setSettingsData({ ...settingsData, footer_subtext: e.target.value })}
-                          placeholder="BUILT WITH PRECISION"
-                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5"
-                        />
-                      </div>
                     </div>
                   </div>
-                </div>
-              </form>
+
+                  <div>
+                    <label className="block font-bold text-[#171514] mb-1">STEP SPECIFICATION &amp; DELIVERABLES</label>
+                    <textarea
+                      rows={4}
+                      value={editingMethodologyStep.description}
+                      onChange={(e) => setEditingMethodologyStep({ ...editingMethodologyStep, description: e.target.value })}
+                      placeholder="Describe assessment techniques, tools, and deliverables for this phase"
+                      className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-sans text-xs leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#171514]/20">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMethodologyModalOpen(false);
+                        setEditingMethodologyStep(null);
+                      }}
+                      className="px-4 py-2 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors cursor-pointer"
+                    >
+                      CANCEL
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#DF491E] text-[#171514] font-bold border border-[#171514] hover:bg-[#C73E16] transition-colors cursor-pointer"
+                    >
+                      APPLY STEP →
+                    </button>
+                  </div>
+                </form>
+              </div>
             )}
           </>
         )}
