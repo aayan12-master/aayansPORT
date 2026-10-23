@@ -113,7 +113,7 @@ export interface SkillCategory {
   description: string;
   skills: string[];
   tools: string[];
-  display_order: number;
+  display_order?: number;
   status: 'published' | 'draft';
 }
 
@@ -632,13 +632,75 @@ export async function getSkills(options: { publishedOnly?: boolean } = {}): Prom
 
 export async function updateSkillCategory(id: string | number, updates: Partial<SkillCategory>): Promise<boolean> {
   const supabase = getRequiredSupabaseAdminClient();
-  const { error } = await supabase.from('skills').update(updates).eq('id', id);
+  const payload: Record<string, any> = { ...updates };
+  if (updates.skills !== undefined) {
+    payload.skills = Array.isArray(updates.skills) ? updates.skills : [];
+  }
+  if (updates.tools !== undefined) {
+    payload.tools = Array.isArray(updates.tools) ? updates.tools : [];
+  }
+  const { error } = await supabase.from('skills').update(payload).eq('id', id);
   if (error) {
     console.error('[CMS] Failed to update skill category in Supabase:', error.message);
     throw new Error(`Failed to update skill category in Supabase: ${error.message}`);
   }
   return true;
 }
+
+export async function createSkillCategory(category: {
+  category_num: string;
+  category_title: string;
+  description: string;
+  skills?: string[];
+  tools?: string[];
+  display_order?: number;
+  status?: 'published' | 'draft';
+}): Promise<SkillCategory> {
+  const supabase = getRequiredSupabaseAdminClient();
+
+  const payload = {
+    category_num: category.category_num.trim(),
+    category_title: category.category_title.trim(),
+    description: (category.description || '').trim(),
+    skills: Array.isArray(category.skills) ? category.skills : [],
+    tools: Array.isArray(category.tools) ? category.tools : [],
+    display_order: typeof category.display_order === 'number' ? category.display_order : 0,
+    status: category.status === 'draft' ? 'draft' : 'published',
+  };
+
+  const { data, error } = await supabase
+    .from('skills')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error('[CMS] Failed to create skill category in Supabase:', error?.message);
+    throw new Error(`Failed to create skill category in Supabase: ${error?.message || 'Unknown error'}`);
+  }
+
+  return {
+    id: data.id,
+    category_num: data.category_num,
+    category_title: data.category_title,
+    description: data.description,
+    skills: Array.isArray(data.skills) ? data.skills : [],
+    tools: Array.isArray(data.tools) ? data.tools : [],
+    display_order: data.display_order,
+    status: data.status,
+  };
+}
+
+export async function deleteSkillCategory(id: string | number): Promise<boolean> {
+  const supabase = getRequiredSupabaseAdminClient();
+  const { error } = await supabase.from('skills').delete().eq('id', id);
+  if (error) {
+    console.error('[CMS] Failed to delete skill category in Supabase:', error.message);
+    throw new Error(`Failed to delete skill category in Supabase: ${error.message}`);
+  }
+  return true;
+}
+
 
 // -----------------------------------------------------------------------------
 // 7. CONTACT SUBMISSIONS

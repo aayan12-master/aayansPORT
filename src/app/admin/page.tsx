@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { RESEARCH_CATEGORIES } from '@/lib/categories';
+import SimpleSkillsManager from '@/components/SimpleSkillsManager';
 
 interface DashboardStats {
   projects: { total: number; published: number; draft: number };
@@ -108,6 +109,7 @@ interface SkillCategory {
   skills: string[];
   tools: string[];
   status: 'published' | 'draft';
+  display_order?: number;
 }
 
 interface HeroData {
@@ -186,6 +188,7 @@ export default function AdminPage() {
   const [researchList, setResearchList] = useState<ResearchPost[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [skillsList, setSkillsList] = useState<SkillCategory[]>([]);
+  const [persistedSkillsList, setPersistedSkillsList] = useState<SkillCategory[]>([]);
   const [heroData, setHeroData] = useState<HeroData | null>(null);
   const [aboutData, setAboutData] = useState<AboutData | null>(null);
   const [domains, setDomains] = useState<ResearchDomain[]>([]);
@@ -310,13 +313,30 @@ export default function AdminPage() {
         setDomains(aboutRes.domains || []);
         setMethodology(aboutRes.methodology || []);
       }
-      if (skillsRes.success) setSkillsList(skillsRes.skills);
+      if (skillsRes.success) {
+        setSkillsList(skillsRes.skills);
+        setPersistedSkillsList(skillsRes.skills);
+      }
       if (settingsRes.success) setSettingsData(settingsRes.settings);
     } catch (err) {
       console.error('Error loading admin data:', err);
       showFeedback('error', 'Failed to load some dashboard sections.');
     } finally {
       setLoadingSection(false);
+    }
+  };
+
+  const loadSkillsData = async (): Promise<SkillCategory[] | undefined> => {
+    try {
+      const res = await fetch('/api/admin/skills');
+      const data = await res.json();
+      if (res.ok && data.success && data.skills) {
+        setSkillsList(data.skills);
+        setPersistedSkillsList(data.skills);
+        return data.skills;
+      }
+    } catch (err) {
+      console.error('Error refreshing skills:', err);
     }
   };
 
@@ -699,7 +719,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleUpdateSkillCategory = async (cat: SkillCategory) => {
+  const handleUpdateSkillCategory = async (cat: SkillCategory): Promise<boolean> => {
     try {
       const res = await fetch('/api/admin/skills', {
         method: 'PUT',
@@ -708,14 +728,135 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        showFeedback('success', `Category ${cat.category_num} updated.`);
-        if (data.skills) setSkillsList(data.skills);
+        showFeedback('success', `Domain ${cat.category_num} (${cat.category_title}) saved to database.`);
+        if (data.skills) {
+          setSkillsList(data.skills);
+          setPersistedSkillsList(data.skills);
+        }
+        return true;
       } else {
         showFeedback('error', data.error || 'Failed to update skill category.');
+        return false;
       }
     } catch {
       showFeedback('error', 'Network error updating skill category.');
+      return false;
     }
+  };
+
+  const handleCreateSkillCategory = async (newCat: {
+    category_num: string;
+    category_title: string;
+    description: string;
+    status: 'published' | 'draft';
+  }): Promise<SkillCategory | boolean | null> => {
+    try {
+      const res = await fetch('/api/admin/skills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCat),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showFeedback('success', data.message || `Domain ${newCat.category_num} created.`);
+        if (data.skills) {
+          setSkillsList(data.skills);
+          setPersistedSkillsList(data.skills);
+        }
+        return data.category || (data.skills ? data.skills.find((s: any) => s.category_title === newCat.category_title) : null) || true;
+      } else {
+        showFeedback('error', data.error || 'Failed to create domain.');
+        return null;
+      }
+    } catch {
+      showFeedback('error', 'Network error creating domain.');
+      return null;
+    }
+  };
+
+  const handleDeleteSkillCategory = async (id: string | number): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/admin/skills?id=${encodeURIComponent(String(id))}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showFeedback('success', data.message || 'Domain deleted successfully.');
+        if (data.skills) {
+          setSkillsList(data.skills);
+          setPersistedSkillsList(data.skills);
+        }
+        return true;
+      } else {
+        showFeedback('error', data.error || 'Failed to delete domain.');
+        return false;
+      }
+    } catch {
+      showFeedback('error', 'Network error deleting domain.');
+      return false;
+    }
+  };
+
+  const handleReorderSkillCategories = async (reordered: SkillCategory[]): Promise<boolean> => {
+    try {
+      setSkillsList(reordered);
+      const payload = {
+        reorder: reordered.map((cat, idx) => ({ id: cat.id, display_order: idx + 1 })),
+      };
+      const res = await fetch('/api/admin/skills', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showFeedback('success', 'Domain display order updated.');
+        if (data.skills) {
+          setSkillsList(data.skills);
+          setPersistedSkillsList(data.skills);
+        }
+        return true;
+      } else {
+        showFeedback('error', data.error || 'Failed to reorder domains.');
+        setSkillsList(persistedSkillsList);
+        return false;
+      }
+    } catch {
+      showFeedback('error', 'Network error reordering domains.');
+      setSkillsList(persistedSkillsList);
+      return false;
+    }
+  };
+
+  const handleMoveSkillOrTool = (
+    itemName: string,
+    type: 'skill' | 'tool',
+    sourceCatId: string | number,
+    targetCatId: string | number
+  ) => {
+    setSkillsList((prev) =>
+      prev.map((cat) => {
+        if (cat.id === sourceCatId) {
+          return type === 'skill'
+            ? { ...cat, skills: (cat.skills || []).filter((s) => s !== itemName) }
+            : { ...cat, tools: (cat.tools || []).filter((t) => t !== itemName) };
+        }
+        if (cat.id === targetCatId) {
+          return type === 'skill'
+            ? { ...cat, skills: [...(cat.skills || []), itemName] }
+            : { ...cat, tools: [...(cat.tools || []), itemName] };
+        }
+        return cat;
+      })
+    );
+    showFeedback('success', `Moved "${itemName}" to target domain in preview. Click Save to persist.`);
+  };
+
+  const handleRevertSkillCategory = (domainId: string | number) => {
+    const baseline = persistedSkillsList.find((b) => b.id === domainId);
+    if (!baseline) return;
+    setSkillsList((prev) => prev.map((cat) => (cat.id === domainId ? { ...baseline } : cat)));
+    showFeedback('success', `Reverted changes for Domain ${baseline.category_num}.`);
   };
 
   const handleSubmissionStatus = async (id: string | number, newStatus: 'unread' | 'read' | 'archived') => {
@@ -954,6 +1095,7 @@ export default function AdminPage() {
             ].map((tab) => (
               <button
                 key={tab.id}
+                id={`admin-tab-${tab.id}`}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`w-full text-left px-3 py-2.5 font-bold tracking-wider transition-all flex items-center justify-between border cursor-pointer ${
                   activeTab === tab.id
@@ -2881,84 +3023,16 @@ export default function AdminPage() {
             {/* 6. SKILLS MATRIX TAB */}
             {/* ------------------------------------------------------------- */}
             {activeTab === 'skills' && (
-              <div className="space-y-6 max-w-4xl">
-                <div className="border-b-2 border-[#171514] pb-4">
-                  <div className="font-mono text-xs font-bold text-[#DF491E] uppercase tracking-wider">
-                    // CONTENT MODEL 05
-                  </div>
-                  <h2 className="font-display text-3xl font-extrabold text-[#171514] tracking-wide mt-1">
-                    SKILLS MATRIX &amp; TOOLS
-                  </h2>
-                </div>
-
-                <div className="space-y-6">
-                  {skillsList.map((cat, idx) => (
-                    <div key={cat.id || idx} className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4 font-mono text-xs">
-                      <div className="flex items-center justify-between border-b border-[#171514]/20 pb-2">
-                        <span className="font-bold text-[#DF491E] text-sm">
-                          {cat.category_num} // {cat.category_title}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateSkillCategory(cat)}
-                          className="px-3 py-1 bg-[#171514] text-[#ECE8DF] hover:bg-[#DF491E] hover:text-[#171514] font-bold transition-colors"
-                        >
-                          SAVE CATEGORY
-                        </button>
-                      </div>
-
-                      <div>
-                        <label className="block font-bold text-[#171514] mb-1">CATEGORY DESCRIPTION</label>
-                        <input
-                          type="text"
-                          value={cat.description}
-                          onChange={(e) => {
-                            const updated = [...skillsList];
-                            updated[idx].description = e.target.value;
-                            setSkillsList(updated);
-                          }}
-                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block font-bold text-[#171514] mb-1">
-                          TECHNICAL COMPETENCIES (COMMA-SEPARATED)
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={cat.skills.join(', ')}
-                          onChange={(e) => {
-                            const updated = [...skillsList];
-                            updated[idx].skills = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
-                            setSkillsList(updated);
-                          }}
-                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2 font-sans text-xs"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block font-bold text-[#171514] mb-1">
-                          TOOLING &amp; PLATFORMS (COMMA-SEPARATED)
-                        </label>
-                        <input
-                          type="text"
-                          value={cat.tools.join(', ')}
-                          onChange={(e) => {
-                            const updated = [...skillsList];
-                            updated[idx].tools = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
-                            setSkillsList(updated);
-                          }}
-                          className="w-full bg-[#ECE8DF] border border-[#171514] p-2"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <SimpleSkillsManager
+                skillsList={skillsList}
+                onSaveDomain={handleUpdateSkillCategory}
+                onCreateDomain={handleCreateSkillCategory}
+                onDeleteDomain={handleDeleteSkillCategory}
+                onRefreshSkills={loadSkillsData}
+                onShowFeedback={showFeedback}
+              />
             )}
 
-            {/* ------------------------------------------------------------- */}
             {/* 7. INBOX / CONTACT SUBMISSIONS TAB */}
             {/* ------------------------------------------------------------- */}
             {activeTab === 'submissions' && (
