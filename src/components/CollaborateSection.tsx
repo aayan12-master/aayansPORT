@@ -5,12 +5,21 @@ import HandDrawnFrame from './HandDrawnFrame';
 import HandDrawnButton from './HandDrawnButton';
 
 import type { SiteSettings } from '@/lib/cms';
+import InlineEditable from './admin/InlineEditable';
 
 export interface CollaborateSectionProps {
   initialSettings?: SiteSettings | null;
+  isEditingMode?: boolean;
+  settingsOverride?: SiteSettings | null;
+  onSettingsChange?: (field: keyof SiteSettings, value: any) => void;
 }
 
-export default function CollaborateSection({ initialSettings }: CollaborateSectionProps = {}) {
+export default function CollaborateSection({
+  initialSettings,
+  isEditingMode = false,
+  settingsOverride,
+  onSettingsChange,
+}: CollaborateSectionProps = {}) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -25,7 +34,10 @@ export default function CollaborateSection({ initialSettings }: CollaborateSecti
     linkedin_url: initialSettings?.linkedin_url || 'https://linkedin.com/in/aayan-sec',
     twitter_url: initialSettings?.twitter_url || 'https://twitter.com/aayan_sec',
     status_text: initialSettings?.status_text || 'OPEN FOR COLLABORATION',
+    open_for_collaboration: initialSettings?.open_for_collaboration ?? true,
   }));
+
+  const currentSettings = settingsOverride || settings;
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
@@ -38,6 +50,7 @@ export default function CollaborateSection({ initialSettings }: CollaborateSecti
         linkedin_url: initialSettings.linkedin_url || 'https://linkedin.com/in/aayan-sec',
         twitter_url: initialSettings.twitter_url || 'https://twitter.com/aayan_sec',
         status_text: initialSettings.status_text || 'OPEN FOR COLLABORATION',
+        open_for_collaboration: initialSettings.open_for_collaboration ?? true,
       });
       return;
     }
@@ -52,6 +65,7 @@ export default function CollaborateSection({ initialSettings }: CollaborateSecti
             linkedin_url: data.settings.linkedin_url || 'https://linkedin.com/in/aayan-sec',
             twitter_url: data.settings.twitter_url || 'https://twitter.com/aayan_sec',
             status_text: data.settings.status_text || 'OPEN FOR COLLABORATION',
+            open_for_collaboration: data.settings.open_for_collaboration ?? true,
           });
         }
       })
@@ -117,10 +131,27 @@ export default function CollaborateSection({ initialSettings }: CollaborateSecti
               Available for external penetration testing, web application architecture reviews, coordinated vulnerability disclosures, and red team adversary simulations.
             </p>
             <div className="flex items-center gap-2 pt-1">
-              <span className="w-3 h-3 rounded-full bg-[#DF491E] animate-pulse-dot" />
+              <span className={`w-3 h-3 rounded-full flex-shrink-0 ${currentSettings.open_for_collaboration !== false ? 'bg-[#DF491E] animate-pulse-dot' : 'bg-[#5A5650]'}`} />
               <span className="font-mono text-xs font-bold uppercase text-[#171514]">
-                {settings.status_text || 'CURRENTLY OPEN TO SELECT PROJECTS'}
+                <InlineEditable
+                  value={currentSettings.status_text || 'OPEN FOR COLLABORATION'}
+                  onChange={(val) => onSettingsChange?.('status_text', val)}
+                  isEditingMode={isEditingMode}
+                  label="Collaboration Status"
+                />
               </span>
+              {isEditingMode && onSettingsChange && (
+                <button
+                  type="button"
+                  onClick={() => onSettingsChange('open_for_collaboration', !currentSettings.open_for_collaboration)}
+                  className={`ml-auto font-mono text-[9px] font-bold px-1.5 py-0.5 border border-[#171514] cursor-pointer ${
+                    currentSettings.open_for_collaboration !== false ? 'bg-[#DF491E] text-[#171514]' : 'bg-[#ECE8DF] text-[#5A5650]'
+                  }`}
+                  title="Toggle active status indicator"
+                >
+                  {currentSettings.open_for_collaboration !== false ? 'ACTIVE' : 'INACTIVE'}
+                </button>
+              )}
             </div>
           </HandDrawnFrame>
 
@@ -131,27 +162,51 @@ export default function CollaborateSection({ initialSettings }: CollaborateSecti
             </div>
             <div className="flex items-center justify-between border-b border-[#171514]/20 pb-2">
               <span className="text-[#5A5650]">EMAIL:</span>
-              <a href={`mailto:${settings.contact_email}`} className="font-bold text-[#171514] hover:text-[#DF491E]">
-                {settings.contact_email} ↗
-              </a>
+              <div className="font-bold text-[#171514]">
+                <InlineEditable
+                  value={currentSettings.contact_email}
+                  onChange={(val) => onSettingsChange?.('contact_email', val)}
+                  isEditingMode={isEditingMode}
+                  label="Contact Email"
+                />
+                {!isEditingMode && ' ↗'}
+              </div>
             </div>
             <div className="flex items-center justify-between border-b border-[#171514]/20 pb-2">
               <span className="text-[#5A5650]">GITHUB:</span>
-              <a href={settings.github_url} target="_blank" rel="noopener noreferrer" className="font-bold text-[#171514] hover:text-[#DF491E]">
-                {settings.github_url.replace('https://', '')} ↗
-              </a>
+              <div className="font-bold text-[#171514]">
+                <InlineEditable
+                  value={currentSettings.github_url}
+                  onChange={(val) => onSettingsChange?.('github_url', val)}
+                  isEditingMode={isEditingMode}
+                  label="GitHub URL"
+                />
+                {!isEditingMode && ' ↗'}
+              </div>
             </div>
             <div className="flex items-center justify-between border-b border-[#171514]/20 pb-2">
               <span className="text-[#5A5650]">LINKEDIN:</span>
-              <a href={settings.linkedin_url} target="_blank" rel="noopener noreferrer" className="font-bold text-[#171514] hover:text-[#DF491E]">
-                {settings.linkedin_url.replace('https://', '')} ↗
-              </a>
+              <div className="font-bold text-[#171514]">
+                <InlineEditable
+                  value={currentSettings.linkedin_url}
+                  onChange={(val) => onSettingsChange?.('linkedin_url', val)}
+                  isEditingMode={isEditingMode}
+                  label="LinkedIn URL"
+                />
+                {!isEditingMode && ' ↗'}
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[#5A5650]">TWITTER (X):</span>
-              <a href={settings.twitter_url} target="_blank" rel="noopener noreferrer" className="font-bold text-[#171514] hover:text-[#DF491E]">
-                {settings.twitter_url.replace('https://twitter.com/', '@').replace('https://x.com/', '@')} ↗
-              </a>
+              <div className="font-bold text-[#171514]">
+                <InlineEditable
+                  value={currentSettings.twitter_url}
+                  onChange={(val) => onSettingsChange?.('twitter_url', val)}
+                  isEditingMode={isEditingMode}
+                  label="Twitter (X) URL"
+                />
+                {!isEditingMode && ' ↗'}
+              </div>
             </div>
           </div>
         </div>

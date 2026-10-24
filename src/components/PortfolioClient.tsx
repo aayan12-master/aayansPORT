@@ -8,6 +8,7 @@ import ResearchSection from '@/components/ResearchSection';
 import ToolsSection from '@/components/ToolsSection';
 import SkillsSection from '@/components/SkillsSection';
 import CollaborateSection from '@/components/CollaborateSection';
+import InlineEditable from '@/components/admin/InlineEditable';
 import type {
   SiteSettings,
   HeroContent,
@@ -28,6 +29,20 @@ export interface PortfolioClientProps {
   initialResearch?: ResearchPost[] | null;
   projectsCount?: number;
   writeupsCount?: number;
+
+  // Visual Editor props
+  isEditingMode?: boolean;
+  settingsOverride?: SiteSettings | null;
+  heroOverride?: HeroContent | null;
+  aboutOverride?: AboutContent | null;
+  domainsOverride?: ResearchDomain[] | null;
+  onSettingsChange?: (field: keyof SiteSettings, value: any) => void;
+  onHeroChange?: (field: keyof HeroContent, value: string) => void;
+  onAboutChange?: (field: keyof AboutContent, value: string) => void;
+  onDomainChange?: (index: number, field: keyof ResearchDomain, value: string) => void;
+  onAddDomain?: () => void;
+  onDeleteDomain?: (index: number) => void;
+  onMoveDomain?: (index: number, direction: 'up' | 'down') => void;
 }
 
 export default function PortfolioClient({
@@ -40,6 +55,18 @@ export default function PortfolioClient({
   initialResearch,
   projectsCount,
   writeupsCount,
+  isEditingMode = false,
+  settingsOverride,
+  heroOverride,
+  aboutOverride,
+  domainsOverride,
+  onSettingsChange,
+  onHeroChange,
+  onAboutChange,
+  onDomainChange,
+  onAddDomain,
+  onDeleteDomain,
+  onMoveDomain,
 }: PortfolioClientProps) {
   const [activeSection, setActiveSection] = useState('overview');
   const [footerInfo, setFooterInfo] = useState(() => ({
@@ -102,11 +129,16 @@ export default function PortfolioClient({
     }
   };
 
+  const currentSettings = settingsOverride || initialSettings;
+  const currentFooterBrand = currentSettings?.footer_brand || footerInfo.brand;
+  const currentFooterText = currentSettings?.footer_text || footerInfo.text;
+  const currentFooterSubtext = currentSettings?.footer_subtext || footerInfo.subtext;
+
   return (
     <div className="min-h-screen bg-[#ECE8DF] text-[#171514] flex flex-col lg:flex-row relative">
       {/* Main Content Stream (Sections 01 - 06) */}
       <main className="flex-1 w-full lg:max-w-[calc(100%-285px)] xl:max-w-[calc(100%-300px)] min-h-screen relative">
-        {/* 01 — OVERVIEW (Hero Masterpiece matching entire_portfolio_visual) */}
+        {/* 01 — OVERVIEW (Hero Masterpiece) */}
         <div id="overview" className="w-full">
           <HeroMasterpiece
             initialHero={initialHero}
@@ -114,6 +146,9 @@ export default function PortfolioClient({
             writeupsCount={writeupsCount}
             onViewResearch={() => scrollToSection('research')}
             onCollaborate={() => scrollToSection('collaborate')}
+            isEditingMode={isEditingMode}
+            heroOverride={heroOverride}
+            onHeroChange={onHeroChange}
           />
         </div>
 
@@ -122,6 +157,14 @@ export default function PortfolioClient({
           <BackgroundSection
             initialAbout={initialAbout}
             initialDomains={initialDomains}
+            isEditingMode={isEditingMode}
+            aboutOverride={aboutOverride}
+            domainsOverride={domainsOverride}
+            onAboutChange={onAboutChange}
+            onDomainChange={onDomainChange}
+            onAddDomain={onAddDomain}
+            onDeleteDomain={onDeleteDomain}
+            onMoveDomain={onMoveDomain}
           />
         </div>
 
@@ -142,18 +185,40 @@ export default function PortfolioClient({
 
         {/* 06 — COLLABORATE */}
         <div id="collaborate" className="w-full">
-          <CollaborateSection initialSettings={initialSettings} />
+          <CollaborateSection
+            initialSettings={initialSettings}
+            isEditingMode={isEditingMode}
+            settingsOverride={settingsOverride}
+            onSettingsChange={onSettingsChange}
+          />
         </div>
 
         {/* Footer info strip */}
         <footer className="w-full bg-[#171514] text-[#ECE8DF] font-mono text-xs p-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t-2 border-[#171514]">
           <div className="flex items-center gap-3">
-            <span className="font-bold text-[#DF491E]">{footerInfo.brand}</span>
+            <InlineEditable
+              value={currentFooterBrand}
+              isEditingMode={isEditingMode}
+              label="Footer Brand"
+              onChange={(v) => onSettingsChange?.('footer_brand', v)}
+              className="font-bold text-[#DF491E]"
+            />
             <span className="text-[#BCB8B1]">|</span>
-            <span className="text-[#BCB8B1]">{footerInfo.text}</span>
+            <InlineEditable
+              value={currentFooterText}
+              isEditingMode={isEditingMode}
+              label="Footer Text"
+              onChange={(v) => onSettingsChange?.('footer_text', v)}
+              className="text-[#BCB8B1]"
+            />
           </div>
           <div className="flex items-center text-[#BCB8B1]">
-            <span>{footerInfo.subtext}</span>
+            <InlineEditable
+              value={currentFooterSubtext}
+              isEditingMode={isEditingMode}
+              label="Footer Subtext"
+              onChange={(v) => onSettingsChange?.('footer_subtext', v)}
+            />
           </div>
         </footer>
       </main>
@@ -163,7 +228,7 @@ export default function PortfolioClient({
         <NavigationRail
           activeSection={activeSection}
           onSelectSection={scrollToSection}
-          settings={initialSettings}
+          settings={currentSettings}
         />
       </div>
 
@@ -172,7 +237,7 @@ export default function PortfolioClient({
         <NavigationRail
           activeSection={activeSection}
           onSelectSection={scrollToSection}
-          settings={initialSettings}
+          settings={currentSettings}
         />
       </div>
     </div>

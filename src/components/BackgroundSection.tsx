@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import HandDrawnFrame from './HandDrawnFrame';
 import type { AboutContent, ResearchDomain as CmsResearchDomain } from '@/lib/cms';
+import InlineEditable from './admin/InlineEditable';
 
 export interface ResearchDomain {
   id?: string | number;
@@ -16,11 +17,27 @@ export interface ResearchDomain {
 export interface BackgroundSectionProps {
   initialAbout?: AboutContent | null;
   initialDomains?: ResearchDomain[] | null;
+  isEditingMode?: boolean;
+  aboutOverride?: AboutContent | null;
+  domainsOverride?: ResearchDomain[] | null;
+  onAboutChange?: (field: keyof AboutContent, value: string) => void;
+  onDomainChange?: (index: number, field: keyof ResearchDomain, value: string) => void;
+  onAddDomain?: () => void;
+  onDeleteDomain?: (index: number) => void;
+  onMoveDomain?: (index: number, direction: 'up' | 'down') => void;
 }
 
 export default function BackgroundSection({
   initialAbout,
   initialDomains,
+  isEditingMode = false,
+  aboutOverride,
+  domainsOverride,
+  onAboutChange,
+  onDomainChange,
+  onAddDomain,
+  onDeleteDomain,
+  onMoveDomain,
 }: BackgroundSectionProps = {}) {
   const [about, setAbout] = useState(() => ({
     status_badge: initialAbout?.status_badge || 'ACTIVE RESEARCHER',
@@ -68,6 +85,9 @@ export default function BackgroundSection({
           },
         ]
   );
+
+  const currentAbout = aboutOverride || about;
+  const currentDomains = domainsOverride || domains;
 
   useEffect(() => {
     if (initialAbout || initialDomains) {
@@ -136,56 +156,163 @@ export default function BackgroundSection({
               // OPERATIVE BIOGRAPHY
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {about.status_badge && (
-                <span className="font-mono text-[10px] font-bold px-2 py-0.5 bg-[#171514] text-[#ECE8DF] uppercase tracking-wider">
-                  {about.status_badge}
-                </span>
-              )}
-              {about.spec_text && (
-                <span className="font-mono text-[10px] font-bold text-[#5A5650] uppercase tracking-wider">
-                  [{about.spec_text}]
-                </span>
-              )}
+              <span className="font-mono text-[10px] font-bold px-2 py-0.5 bg-[#171514] text-[#ECE8DF] uppercase tracking-wider">
+                <InlineEditable
+                  value={currentAbout.status_badge}
+                  onChange={(val) => onAboutChange?.('status_badge', val)}
+                  isEditingMode={isEditingMode}
+                  label="Status Badge"
+                />
+              </span>
+              <span className="font-mono text-[10px] font-bold text-[#5A5650] uppercase tracking-wider">
+                [
+                <InlineEditable
+                  value={currentAbout.spec_text}
+                  onChange={(val) => onAboutChange?.('spec_text', val)}
+                  isEditingMode={isEditingMode}
+                  label="Specification Title"
+                />
+                ]
+              </span>
             </div>
           </div>
           <p className="font-sans text-base sm:text-lg leading-relaxed text-[#171514]">
-            {about.bio_paragraph_1}
+            <InlineEditable
+              value={currentAbout.bio_paragraph_1}
+              onChange={(val) => onAboutChange?.('bio_paragraph_1', val)}
+              isEditingMode={isEditingMode}
+              label="Primary Biography"
+              multiline
+              className="font-sans text-base sm:text-lg leading-relaxed text-[#171514]"
+            />
           </p>
           <p className="font-sans text-sm sm:text-base leading-relaxed text-[#5A5650]">
-            {about.bio_paragraph_2}
+            <InlineEditable
+              value={currentAbout.bio_paragraph_2}
+              onChange={(val) => onAboutChange?.('bio_paragraph_2', val)}
+              isEditingMode={isEditingMode}
+              label="Secondary Philosophy"
+              multiline
+              className="font-sans text-sm sm:text-base leading-relaxed text-[#5A5650]"
+            />
           </p>
           <div className="pt-2 flex items-center gap-3">
             <span className="w-2.5 h-2.5 bg-[#DF491E] flex-shrink-0" />
             <span className="font-mono text-xs font-bold tracking-widest text-[#171514] uppercase">
-              &ldquo;{about.motto_quote}&rdquo;
+              &ldquo;
+              <InlineEditable
+                value={currentAbout.motto_quote}
+                onChange={(val) => onAboutChange?.('motto_quote', val)}
+                isEditingMode={isEditingMode}
+                label="Motto Banner"
+                className="font-mono text-xs font-bold tracking-widest text-[#171514] uppercase"
+              />
+              &rdquo;
             </span>
           </div>
         </HandDrawnFrame>
 
         {/* 2. Research Domains Grid */}
-        {domains.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-[#171514]/20 pb-2">
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-2">
+            <div className="flex items-center gap-3">
               <div className="font-mono text-xs font-bold tracking-wider text-[#DF491E] uppercase">
                 // RESEARCH DOMAINS
               </div>
               <span className="font-mono text-[11px] text-[#5A5650] uppercase tracking-wider">
-                [ {domains.length} ACTIVE DOMAINS ]
+                [ {currentDomains.length} ACTIVE DOMAINS ]
               </span>
             </div>
-            <div className={`grid gap-4 sm:gap-6 ${domains.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
-              {domains.map((d, idx) => (
-                <div key={d.id || idx} className="border border-[#171514] p-5 bg-[#F2EFE7] hover:border-[#DF491E] transition-colors">
+            {isEditingMode && onAddDomain && (
+              <button
+                type="button"
+                onClick={onAddDomain}
+                className="px-3 py-1 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-mono text-xs font-bold border border-[#171514] cursor-pointer transition-colors"
+              >
+                + ADD RESEARCH DOMAIN
+              </button>
+            )}
+          </div>
+
+          {currentDomains.length === 0 ? (
+            <div className="p-8 border border-dashed border-[#171514]/40 text-center font-mono text-xs text-[#5A5650]">
+              No research domains configured. Click &ldquo;+ ADD RESEARCH DOMAIN&rdquo; above to add one.
+            </div>
+          ) : (
+            <div className={`grid gap-4 sm:gap-6 ${currentDomains.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+              {currentDomains.map((d, idx) => (
+                <div key={d.id || idx} className="border border-[#171514] p-5 bg-[#F2EFE7] hover:border-[#DF491E] transition-colors relative group">
                   <div className="font-mono text-xs font-bold text-[#DF491E] mb-1.5 flex items-center justify-between">
-                    <span>{d.domain_num} / {d.domain_code}</span>
+                    <div>
+                      <InlineEditable
+                        value={d.domain_num}
+                        onChange={(val) => onDomainChange?.(idx, 'domain_num', val)}
+                        isEditingMode={isEditingMode}
+                        label="Domain Order #"
+                      />
+                      {' / '}
+                      <InlineEditable
+                        value={d.domain_code}
+                        onChange={(val) => onDomainChange?.(idx, 'domain_code', val)}
+                        isEditingMode={isEditingMode}
+                        label="Domain Code"
+                      />
+                    </div>
+                    {isEditingMode && (
+                      <div className="flex items-center gap-1 font-mono text-[10px]">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => onMoveDomain?.(idx, 'up')}
+                          title="Move up"
+                          className="px-1.5 py-0.5 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === currentDomains.length - 1}
+                          onClick={() => onMoveDomain?.(idx, 'down')}
+                          title="Move down"
+                          className="px-1.5 py-0.5 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDeleteDomain?.(idx)}
+                          title="Delete domain"
+                          className="px-1.5 py-0.5 border border-[#DF491E] bg-[#DF491E]/10 text-[#DF491E] hover:bg-[#DF491E] hover:text-[#171514] cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <h3 className="font-display text-xl sm:text-2xl font-bold mb-2 text-[#171514]">{d.title}</h3>
-                  <p className="text-xs sm:text-sm text-[#5A5650] leading-relaxed font-sans">{d.description}</p>
+                  <h3 className="font-display text-xl sm:text-2xl font-bold mb-2 text-[#171514]">
+                    <InlineEditable
+                      value={d.title}
+                      onChange={(val) => onDomainChange?.(idx, 'title', val)}
+                      isEditingMode={isEditingMode}
+                      label="Domain Title"
+                      className="font-display text-xl sm:text-2xl font-bold text-[#171514]"
+                    />
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#5A5650] leading-relaxed font-sans">
+                    <InlineEditable
+                      value={d.description}
+                      onChange={(val) => onDomainChange?.(idx, 'description', val)}
+                      isEditingMode={isEditingMode}
+                      label="Domain Description"
+                      multiline
+                      className="text-xs sm:text-sm text-[#5A5650] leading-relaxed font-sans"
+                    />
+                  </p>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </section>
   );

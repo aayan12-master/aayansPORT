@@ -6,13 +6,17 @@ import HandDrawnButton from './HandDrawnButton';
 import HandDrawnFrame from './HandDrawnFrame';
 
 import type { HeroContent } from '@/lib/cms';
+import InlineEditable from './admin/InlineEditable';
 
-interface HeroMasterpieceProps {
+export interface HeroMasterpieceProps {
   onViewResearch: () => void;
   onCollaborate: () => void;
   initialHero?: HeroContent | null;
   projectsCount?: number;
   writeupsCount?: number;
+  isEditingMode?: boolean;
+  heroOverride?: HeroContent | null;
+  onHeroChange?: (field: keyof HeroContent, value: string) => void;
 }
 
 export default function HeroMasterpiece({
@@ -21,6 +25,9 @@ export default function HeroMasterpiece({
   initialHero,
   projectsCount,
   writeupsCount,
+  isEditingMode = false,
+  heroOverride,
+  onHeroChange,
 }: HeroMasterpieceProps) {
   const [liveProjectsCount, setLiveProjectsCount] = useState<number>(() =>
     typeof projectsCount === 'number' ? projectsCount : 0
@@ -41,6 +48,8 @@ export default function HeroMasterpiece({
     quote: initialHero?.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
     cta_text: initialHero?.cta_text || 'VIEW MY RESEARCH',
   }));
+
+  const currentHero = heroOverride || hero;
 
   useEffect(() => {
     if (typeof projectsCount === 'number') {
@@ -181,7 +190,14 @@ export default function HeroMasterpiece({
 
           {/* Professional Subheading: Supporting Condensed font (Oswald) with controlled weight & tracking */}
           <h2 className="font-condensed font-medium text-lg sm:text-xl lg:text-xl xl:text-[1.48rem] 2xl:text-[1.58rem] tracking-[0.08em] text-[#171514] leading-[1.2] uppercase whitespace-pre-line">
-            {hero.headline}
+            <InlineEditable
+              value={currentHero.headline}
+              onChange={(val) => onHeroChange?.('headline', val)}
+              isEditingMode={isEditingMode}
+              label="Professional Headline"
+              multiline
+              className="font-condensed font-medium text-lg sm:text-xl lg:text-xl xl:text-[1.48rem] 2xl:text-[1.58rem] tracking-[0.08em] text-[#171514] leading-[1.2] uppercase whitespace-pre-line"
+            />
           </h2>
 
           {/* Thin Hand-drawn Style Divider Line */}
@@ -193,16 +209,49 @@ export default function HeroMasterpiece({
 
           {/* 3-line Editorial Manifesto */}
           <div className="font-mono text-xs sm:text-sm font-semibold text-[#171514] space-y-1 tracking-[0.12em] leading-relaxed">
-            <div>{hero.manifesto_line_1}</div>
-            <div>{hero.manifesto_line_2}</div>
-            <div>{hero.manifesto_line_3}</div>
+            <div>
+              <InlineEditable
+                value={currentHero.manifesto_line_1}
+                onChange={(val) => onHeroChange?.('manifesto_line_1', val)}
+                isEditingMode={isEditingMode}
+                label="Manifesto 1"
+              />
+            </div>
+            <div>
+              <InlineEditable
+                value={currentHero.manifesto_line_2}
+                onChange={(val) => onHeroChange?.('manifesto_line_2', val)}
+                isEditingMode={isEditingMode}
+                label="Manifesto 2"
+              />
+            </div>
+            <div>
+              <InlineEditable
+                value={currentHero.manifesto_line_3}
+                onChange={(val) => onHeroChange?.('manifesto_line_3', val)}
+                isEditingMode={isEditingMode}
+                label="Manifesto 3"
+              />
+            </div>
           </div>
 
           {/* Signature Hand-Drawn Primary CTA */}
           <div className="pt-2">
-            <HandDrawnButton onClick={onViewResearch} variant="primary">
-              {hero.cta_text}
-            </HandDrawnButton>
+            {isEditingMode ? (
+              <div className="inline-block">
+                <InlineEditable
+                  value={currentHero.cta_text}
+                  onChange={(val) => onHeroChange?.('cta_text', val)}
+                  isEditingMode={isEditingMode}
+                  label="Button CTA Text"
+                  className="px-5 py-2.5 bg-[#DF491E] text-[#171514] font-bold border-2 border-[#171514] font-mono text-xs uppercase tracking-wider"
+                />
+              </div>
+            ) : (
+              <HandDrawnButton onClick={onViewResearch} variant="primary">
+                {currentHero.cta_text}
+              </HandDrawnButton>
+            )}
           </div>
 
           {/* // CURRENTLY Collaboration Status */}
@@ -213,11 +262,21 @@ export default function HeroMasterpiece({
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-[#DF491E] animate-pulse-dot flex-shrink-0" />
               <span className="font-mono text-xs sm:text-sm font-bold tracking-wider text-[#171514] uppercase">
-                {hero.status_label}
+                <InlineEditable
+                  value={currentHero.status_label}
+                  onChange={(val) => onHeroChange?.('status_label', val)}
+                  isEditingMode={isEditingMode}
+                  label="Status Label"
+                />
               </span>
             </div>
             <div className="font-mono text-[11px] text-[#5A5650] pl-5 tracking-wide">
-              {hero.status_subtext}
+              <InlineEditable
+                value={currentHero.status_subtext}
+                onChange={(val) => onHeroChange?.('status_subtext', val)}
+                isEditingMode={isEditingMode}
+                label="Status Subtext"
+              />
             </div>
           </div>
 
@@ -247,7 +306,13 @@ export default function HeroMasterpiece({
             <div className="text-[#BCB8B1] font-mono text-lg font-light">—</div>
             <div className="text-center">
               <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none">
-                {hero.stat_curiosity}
+                <InlineEditable
+                  value={currentHero.stat_curiosity}
+                  onChange={(val) => onHeroChange?.('stat_curiosity', val)}
+                  isEditingMode={isEditingMode}
+                  label="Curiosity Symbol"
+                  className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none"
+                />
               </div>
               <div className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase mt-0.5">
                 CURIOSITY
@@ -258,7 +323,16 @@ export default function HeroMasterpiece({
           {/* Quote Block with Orange Accent Bar */}
           <div className="flex items-center gap-3 pt-1 border-l-4 border-[#DF491E] pl-3">
             <p className="font-mono text-xs sm:text-sm font-bold tracking-wider text-[#171514] uppercase leading-snug">
-              &ldquo;{hero.quote}&rdquo;
+              &ldquo;
+              <InlineEditable
+                value={currentHero.quote}
+                onChange={(val) => onHeroChange?.('quote', val)}
+                isEditingMode={isEditingMode}
+                label="Editorial Quote"
+                multiline
+                className="font-mono text-xs sm:text-sm font-bold tracking-wider text-[#171514] uppercase leading-snug"
+              />
+              &rdquo;
             </p>
           </div>
         </div>
