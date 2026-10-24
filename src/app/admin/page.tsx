@@ -144,13 +144,6 @@ interface ResearchDomain {
   description: string;
 }
 
-interface MethodologyStep {
-  id: string | number;
-  step_num: string;
-  title: string;
-  description: string;
-}
-
 interface SiteSettingsData {
   site_title: string;
   site_description: string;
@@ -186,14 +179,11 @@ export default function AdminPage() {
   const [initialHeroData, setInitialHeroData] = useState<HeroData | null>(null);
   const [initialAboutData, setInitialAboutData] = useState<AboutData | null>(null);
   const [initialDomains, setInitialDomains] = useState<ResearchDomain[]>([]);
-  const [initialMethodology, setInitialMethodology] = useState<MethodologyStep[]>([]);
   const [initialSettingsData, setInitialSettingsData] = useState<SiteSettingsData | null>(null);
 
-  // Compact Table Modal States for Background & Methodology
+  // Compact Table Modal States for Research Domains
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
   const [editingDomain, setEditingDomain] = useState<ResearchDomain | null>(null);
-  const [isMethodologyModalOpen, setIsMethodologyModalOpen] = useState(false);
-  const [editingMethodologyStep, setEditingMethodologyStep] = useState<MethodologyStep | null>(null);
 
   // Notification feedback
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -208,7 +198,6 @@ export default function AdminPage() {
   const [heroData, setHeroData] = useState<HeroData | null>(null);
   const [aboutData, setAboutData] = useState<AboutData | null>(null);
   const [domains, setDomains] = useState<ResearchDomain[]>([]);
-  const [methodology, setMethodology] = useState<MethodologyStep[]>([]);
   const [settingsData, setSettingsData] = useState<SiteSettingsData | null>(null);
   const [loadingSection, setLoadingSection] = useState(false);
 
@@ -227,10 +216,9 @@ export default function AdminPage() {
     if (!aboutData || !initialAboutData) return false;
     return (
       JSON.stringify(aboutData) !== JSON.stringify(initialAboutData) ||
-      JSON.stringify(domains) !== JSON.stringify(initialDomains) ||
-      JSON.stringify(methodology) !== JSON.stringify(initialMethodology)
+      JSON.stringify(domains) !== JSON.stringify(initialDomains)
     );
-  }, [aboutData, initialAboutData, domains, initialDomains, methodology, initialMethodology]);
+  }, [aboutData, initialAboutData, domains, initialDomains]);
 
   // Prevent accidental navigation with unsaved changes
   useEffect(() => {
@@ -365,8 +353,6 @@ export default function AdminPage() {
         setInitialAboutData(aboutRes.about);
         setDomains(aboutRes.domains || []);
         setInitialDomains(aboutRes.domains || []);
-        setMethodology(aboutRes.methodology || []);
-        setInitialMethodology(aboutRes.methodology || []);
       }
       if (skillsRes.success) {
         setSkillsList(skillsRes.skills);
@@ -429,14 +415,13 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/about', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ about: aboutData, domains, methodology }),
+        body: JSON.stringify({ about: aboutData, domains }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         setInitialAboutData({ ...aboutData });
         setInitialDomains([...domains]);
-        setInitialMethodology([...methodology]);
-        showFeedback('success', 'Background & methodology updated successfully.');
+        showFeedback('success', 'Background and research domains updated successfully.');
       } else {
         showFeedback('error', data.error || 'Failed to save background content.');
       }
@@ -476,7 +461,7 @@ export default function AdminPage() {
     }
     setIsDomainModalOpen(false);
     setEditingDomain(null);
-    showFeedback('success', 'Profile highlight updated. Click SAVE CHANGES to persist to database.');
+    showFeedback('success', 'Research domain updated. Click SAVE CHANGES to persist to database.');
   };
 
   const handleDeleteDomain = async (index: number) => {
@@ -486,11 +471,11 @@ export default function AdminPage() {
         const res = await fetch(`/api/admin/about?type=domain&id=${target.id}`, { method: 'DELETE' });
         const data = await res.json();
         if (!res.ok || !data.success) {
-          showFeedback('error', data.error || 'Failed to delete profile highlight.');
+          showFeedback('error', data.error || 'Failed to delete research domain.');
           return;
         }
       } catch {
-        showFeedback('error', 'Network error deleting profile highlight.');
+        showFeedback('error', 'Network error deleting research domain.');
         return;
       }
     }
@@ -500,7 +485,7 @@ export default function AdminPage() {
       domain_num: String(i + 1).padStart(2, '0'),
     }));
     setDomains(renumbered);
-    showFeedback('success', 'Profile highlight removed.');
+    showFeedback('success', 'Research domain removed.');
   };
 
   const handleMoveDomain = (index: number, direction: 'up' | 'down') => {
@@ -515,77 +500,6 @@ export default function AdminPage() {
       domain_num: String(i + 1).padStart(2, '0'),
     }));
     setDomains(renumbered);
-  };
-
-  // Engagement Methodology Modal & Table actions
-  const handleOpenAddStep = () => {
-    const nextNum = String(methodology.length + 1).padStart(2, '0');
-    setEditingMethodologyStep({
-      id: `new-${Date.now()}`,
-      step_num: nextNum,
-      title: '',
-      description: '',
-    });
-    setIsMethodologyModalOpen(true);
-  };
-
-  const handleOpenEditStep = (step: MethodologyStep) => {
-    setEditingMethodologyStep({ ...step });
-    setIsMethodologyModalOpen(true);
-  };
-
-  const handleSaveMethodologyModal = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingMethodologyStep) return;
-    const existsIndex = methodology.findIndex((m) => m.id === editingMethodologyStep.id);
-    if (existsIndex >= 0) {
-      const updated = [...methodology];
-      updated[existsIndex] = editingMethodologyStep;
-      setMethodology(updated);
-    } else {
-      setMethodology([...methodology, editingMethodologyStep]);
-    }
-    setIsMethodologyModalOpen(false);
-    setEditingMethodologyStep(null);
-    showFeedback('success', 'Methodology step updated. Click SAVE CHANGES to persist to database.');
-  };
-
-  const handleDeleteMethodologyStep = async (index: number) => {
-    const target = methodology[index];
-    if (target && target.id && String(target.id).indexOf('new-') !== 0) {
-      try {
-        const res = await fetch(`/api/admin/about?type=step&id=${target.id}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          showFeedback('error', data.error || 'Failed to delete methodology step.');
-          return;
-        }
-      } catch {
-        showFeedback('error', 'Network error deleting methodology step.');
-        return;
-      }
-    }
-    const updated = methodology.filter((_, i) => i !== index);
-    const renumbered = updated.map((m, i) => ({
-      ...m,
-      step_num: String(i + 1).padStart(2, '0'),
-    }));
-    setMethodology(renumbered);
-    showFeedback('success', 'Methodology step removed.');
-  };
-
-  const handleMoveMethodologyStep = (index: number, direction: 'up' | 'down') => {
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === methodology.length - 1) return;
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    const copy = [...methodology];
-    const [removed] = copy.splice(index, 1);
-    copy.splice(targetIndex, 0, removed);
-    const renumbered = copy.map((m, i) => ({
-      ...m,
-      step_num: String(i + 1).padStart(2, '0'),
-    }));
-    setMethodology(renumbered);
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -1607,7 +1521,7 @@ export default function AdminPage() {
                     {[
                       { id: 'hero', label: 'HERO & OVERVIEW', isDirty: isHeroDirty },
                       { id: 'profile', label: 'PROFILE & SOCIAL LINKS', isDirty: isSettingsDirty },
-                      { id: 'background', label: 'BACKGROUND & METHODOLOGY', isDirty: isAboutDirty },
+                      { id: 'background', label: 'BACKGROUND & RESEARCH DOMAINS', isDirty: isAboutDirty },
                     ].map((tab) => (
                       <button
                         key={tab.id}
@@ -2047,7 +1961,7 @@ export default function AdminPage() {
                   </form>
                 )}
 
-                {/* TAB C: BACKGROUND & METHODOLOGY */}
+                {/* TAB C: BACKGROUND & RESEARCH DOMAINS */}
                 {contentSubTab === 'background' && aboutData && (
                   <form onSubmit={handleSaveAbout} className="space-y-6 font-mono text-xs">
                     <div className="border-b border-[#171514]/20 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -2056,10 +1970,10 @@ export default function AdminPage() {
                           // CONTENT WORKSPACE TAB 03
                         </div>
                         <h3 className="font-display text-2xl font-black text-[#171514] tracking-wide mt-0.5">
-                          BACKGROUND &amp; METHODOLOGY
+                          BACKGROUND &amp; RESEARCH DOMAINS
                         </h3>
                         <p className="text-[11px] text-[#5A5650] mt-0.5">
-                          Operative biography, focus area highlights, and security engagement methodology.
+                          Operative biography and dynamic research domain focus areas.
                         </p>
                       </div>
 
@@ -2137,15 +2051,15 @@ export default function AdminPage() {
                       </div>
                     </div>
 
-                    {/* Section 2: Profile Highlights / Focus Areas Table */}
+                    {/* Section 2: Research Domains Table */}
                     <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-3">
                         <div>
                           <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px]">
-                            // 2. PROFILE HIGHLIGHTS &amp; FOCUS AREAS ({domains.length})
+                            // 2. RESEARCH DOMAINS ({domains.length})
                           </div>
                           <div className="text-[11px] text-[#5A5650] mt-0.5">
-                            Compact table manager for specializations, research focus, and career highlights.
+                            Compact table manager for specializations, research focus areas, and vulnerability domains.
                           </div>
                         </div>
                         <button
@@ -2153,7 +2067,7 @@ export default function AdminPage() {
                           onClick={handleOpenAddDomain}
                           className="px-3.5 py-1.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border border-[#171514] text-xs cursor-pointer self-start sm:self-auto"
                         >
-                          + ADD HIGHLIGHT
+                          + ADD RESEARCH DOMAIN
                         </button>
                       </div>
 
@@ -2163,8 +2077,8 @@ export default function AdminPage() {
                             <tr className="border-b border-[#171514] bg-[#171514] text-[#ECE8DF]">
                               <th className="p-2.5 w-16 text-center">ORDER</th>
                               <th className="p-2.5 w-36">CODE / TAG</th>
-                              <th className="p-2.5 w-48">TITLE</th>
-                              <th className="p-2.5">DESCRIPTION</th>
+                              <th className="p-2.5 w-48">DOMAIN TITLE</th>
+                              <th className="p-2.5">SPECIFICATION &amp; FOCUS</th>
                               <th className="p-2.5 w-44 text-right">ACTIONS</th>
                             </tr>
                           </thead>
@@ -2172,7 +2086,7 @@ export default function AdminPage() {
                             {domains.length === 0 ? (
                               <tr>
                                 <td colSpan={5} className="p-6 text-center text-[#5A5650]">
-                                  No profile highlights configured. Click &ldquo;+ ADD HIGHLIGHT&rdquo; to add a specialty area.
+                                  No research domains configured. Click &ldquo;+ ADD RESEARCH DOMAIN&rdquo; to add a specialty area.
                                 </td>
                               </tr>
                             ) : (
@@ -2211,91 +2125,6 @@ export default function AdminPage() {
                                     <button
                                       type="button"
                                       onClick={() => handleDeleteDomain(idx)}
-                                      className="px-2 py-0.5 border border-[#DF491E] bg-[#DF491E]/10 text-[#DF491E] hover:bg-[#DF491E] hover:text-[#171514] font-bold cursor-pointer"
-                                    >
-                                      ✕
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    {/* Section 3: Engagement Methodology Table */}
-                    <div className="border-2 border-[#171514] p-5 bg-[#F2EFE7] space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-3">
-                        <div>
-                          <div className="font-bold text-[#DF491E] uppercase tracking-wider text-[11px]">
-                            // 3. ENGAGEMENT METHODOLOGY ({methodology.length} PHASES)
-                          </div>
-                          <div className="text-[11px] text-[#5A5650] mt-0.5">
-                            Compact table manager for assessment methodology workflow stages.
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleOpenAddStep}
-                          className="px-3.5 py-1.5 bg-[#DF491E] hover:bg-[#C73E16] text-[#171514] font-bold border border-[#171514] text-xs cursor-pointer self-start sm:self-auto"
-                        >
-                          + ADD STEP
-                        </button>
-                      </div>
-
-                      <div className="border border-[#171514] bg-[#ECE8DF] overflow-x-auto">
-                        <table className="w-full text-left font-mono text-xs border-collapse">
-                          <thead>
-                            <tr className="border-b border-[#171514] bg-[#171514] text-[#ECE8DF]">
-                              <th className="p-2.5 w-16 text-center">STEP</th>
-                              <th className="p-2.5 w-56">PHASE TITLE</th>
-                              <th className="p-2.5">SPECIFICATION &amp; DELIVERABLES</th>
-                              <th className="p-2.5 w-44 text-right">ACTIONS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {methodology.length === 0 ? (
-                              <tr>
-                                <td colSpan={4} className="p-6 text-center text-[#5A5650]">
-                                  No methodology steps configured. Click &ldquo;+ ADD STEP&rdquo; to add a phase.
-                                </td>
-                              </tr>
-                            ) : (
-                              methodology.map((m, idx) => (
-                                <tr key={m.id || idx} className="border-b border-[#171514]/20 hover:bg-[#F2EFE7]">
-                                  <td className="p-2.5 text-center font-bold text-[#DF491E]">{m.step_num}</td>
-                                  <td className="p-2.5 font-bold truncate max-w-[220px]">{m.title}</td>
-                                  <td className="p-2.5 text-[11px] text-[#5A5650] truncate max-w-xs">{m.description || '—'}</td>
-                                  <td className="p-2.5 text-right space-x-1 whitespace-nowrap">
-                                    <button
-                                      type="button"
-                                      disabled={idx === 0}
-                                      onClick={() => handleMoveMethodologyStep(idx, 'up')}
-                                      className="px-1.5 py-0.5 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
-                                      title="Move up"
-                                    >
-                                      ↑
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={idx === methodology.length - 1}
-                                      onClick={() => handleMoveMethodologyStep(idx, 'down')}
-                                      className="px-1.5 py-0.5 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] disabled:opacity-30 cursor-pointer"
-                                      title="Move down"
-                                    >
-                                      ↓
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenEditStep(m)}
-                                      className="px-2 py-0.5 border border-[#171514] bg-[#F2EFE7] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold cursor-pointer"
-                                    >
-                                      ✎ EDIT
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteMethodologyStep(idx)}
                                       className="px-2 py-0.5 border border-[#DF491E] bg-[#DF491E]/10 text-[#DF491E] hover:bg-[#DF491E] hover:text-[#171514] font-bold cursor-pointer"
                                     >
                                       ✕
@@ -3920,7 +3749,7 @@ export default function AdminPage() {
                 >
                   <div className="border-b-2 border-[#171514] pb-2 flex items-center justify-between">
                     <span className="font-bold text-[#DF491E] uppercase">
-                      {String(editingDomain.id).startsWith('new-') ? '// ADD PROFILE HIGHLIGHT' : '// EDIT PROFILE HIGHLIGHT'}
+                      {String(editingDomain.id).startsWith('new-') ? '// ADD RESEARCH DOMAIN' : '// EDIT RESEARCH DOMAIN'}
                     </span>
                     <button
                       type="button"
@@ -3958,7 +3787,7 @@ export default function AdminPage() {
 
                   <div>
                     <label className="block font-bold text-[#171514] mb-1">
-                      HIGHLIGHT TITLE <span className="text-[#DF491E]">*</span>
+                      DOMAIN TITLE <span className="text-[#DF491E]">*</span>
                     </label>
                     <input
                       type="text"
@@ -3971,7 +3800,7 @@ export default function AdminPage() {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-[#171514] mb-1">DETAILED SPECIFICATION &amp; METHODOLOGY</label>
+                    <label className="block font-bold text-[#171514] mb-1">DETAILED SPECIFICATION &amp; FOCUS</label>
                     <textarea
                       rows={4}
                       value={editingDomain.description}
@@ -3996,88 +3825,7 @@ export default function AdminPage() {
                       type="submit"
                       className="px-4 py-2 bg-[#DF491E] text-[#171514] font-bold border border-[#171514] hover:bg-[#C73E16] transition-colors cursor-pointer"
                     >
-                      APPLY HIGHLIGHT →
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Modal: Add / Edit Methodology Step */}
-            {isMethodologyModalOpen && editingMethodologyStep && (
-              <div className="fixed inset-0 z-50 bg-[#171514]/60 backdrop-blur-xs flex items-center justify-center p-4">
-                <form
-                  onSubmit={handleSaveMethodologyModal}
-                  className="w-full max-w-lg bg-[#F2EFE7] border-2 border-[#171514] p-6 space-y-4 shadow-2xl font-mono text-xs"
-                >
-                  <div className="border-b-2 border-[#171514] pb-2 flex items-center justify-between">
-                    <span className="font-bold text-[#DF491E] uppercase">
-                      {String(editingMethodologyStep.id).startsWith('new-') ? '// ADD METHODOLOGY STEP' : '// EDIT METHODOLOGY STEP'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMethodologyModalOpen(false);
-                        setEditingMethodologyStep(null);
-                      }}
-                      className="font-bold text-lg leading-none cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block font-bold text-[#171514] mb-1">STEP #</label>
-                      <input
-                        type="text"
-                        value={editingMethodologyStep.step_num}
-                        onChange={(e) => setEditingMethodologyStep({ ...editingMethodologyStep, step_num: e.target.value })}
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2 font-bold"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block font-bold text-[#171514] mb-1">
-                        PHASE TITLE <span className="text-[#DF491E]">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={editingMethodologyStep.title}
-                        onChange={(e) => setEditingMethodologyStep({ ...editingMethodologyStep, title: e.target.value })}
-                        required
-                        placeholder="e.g. Threat Modeling & Scope Discovery"
-                        className="w-full bg-[#ECE8DF] border border-[#171514] p-2 font-bold"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-[#171514] mb-1">STEP SPECIFICATION &amp; DELIVERABLES</label>
-                    <textarea
-                      rows={4}
-                      value={editingMethodologyStep.description}
-                      onChange={(e) => setEditingMethodologyStep({ ...editingMethodologyStep, description: e.target.value })}
-                      placeholder="Describe assessment techniques, tools, and deliverables for this phase"
-                      className="w-full bg-[#ECE8DF] border border-[#171514] p-2.5 font-sans text-xs leading-relaxed"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#171514]/20">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMethodologyModalOpen(false);
-                        setEditingMethodologyStep(null);
-                      }}
-                      className="px-4 py-2 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors cursor-pointer"
-                    >
-                      CANCEL
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-[#DF491E] text-[#171514] font-bold border border-[#171514] hover:bg-[#C73E16] transition-colors cursor-pointer"
-                    >
-                      APPLY STEP →
+                      APPLY DOMAIN →
                     </button>
                   </div>
                 </form>

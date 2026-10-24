@@ -1,37 +1,30 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
 import HandDrawnFrame from './HandDrawnFrame';
-import ResponsiveImage from './ResponsiveImage';
+import type { AboutContent, ResearchDomain as CmsResearchDomain } from '@/lib/cms';
 
-interface ResearchDomain {
+export interface ResearchDomain {
+  id?: string | number;
   domain_num: string;
   domain_code: string;
   title: string;
   description: string;
+  display_order?: number;
 }
-
-interface MethodologyStep {
-  step_num: string;
-  title: string;
-  description: string;
-}
-
-import type { AboutContent, ResearchDomain as CmsResearchDomain, MethodologyStep as CmsMethodologyStep } from '@/lib/cms';
 
 export interface BackgroundSectionProps {
   initialAbout?: AboutContent | null;
   initialDomains?: ResearchDomain[] | null;
-  initialMethodology?: MethodologyStep[] | null;
 }
 
 export default function BackgroundSection({
   initialAbout,
   initialDomains,
-  initialMethodology,
 }: BackgroundSectionProps = {}) {
   const [about, setAbout] = useState(() => ({
+    status_badge: initialAbout?.status_badge || 'ACTIVE RESEARCHER',
+    spec_text: initialAbout?.spec_text || 'OFFENSIVE SECURITY & PENTESTING',
     bio_paragraph_1:
       initialAbout?.bio_paragraph_1 ||
       'Aayan is an offensive security researcher, penetration tester, and bug bounty hunter specializing in deep-dive architectural vulnerability analysis, authentication bypasses, cloud infrastructure exploitation, and custom tooling development.',
@@ -76,37 +69,12 @@ export default function BackgroundSection({
         ]
   );
 
-  const [methodology, setMethodology] = useState<MethodologyStep[]>(() =>
-    initialMethodology && initialMethodology.length > 0
-      ? initialMethodology
-      : [
-          {
-            step_num: '01',
-            title: 'Target Scope Definition & Threat Modeling',
-            description: 'Establishing testing boundaries, rules of engagement, and high-impact attack paths.',
-          },
-          {
-            step_num: '02',
-            title: 'Surface Enumeration & Passive OSINT',
-            description: 'Non-intrusive metadata harvesting, DNS intelligence, and technology fingerprinting.',
-          },
-          {
-            step_num: '03',
-            title: 'Active Vulnerability Probing & Exploit PoC',
-            description: 'Crafting targeted payloads, verifying business logic boundaries, and proving real security impact.',
-          },
-          {
-            step_num: '04',
-            title: 'Comprehensive Remediation Guidance',
-            description: 'Delivering clear, actionable technical reports to empower engineering teams to patch securely.',
-          },
-        ]
-  );
-
   useEffect(() => {
-    if (initialAbout || initialDomains || initialMethodology) {
+    if (initialAbout || initialDomains) {
       if (initialAbout) {
         setAbout({
+          status_badge: initialAbout.status_badge || 'ACTIVE RESEARCHER',
+          spec_text: initialAbout.spec_text || 'OFFENSIVE SECURITY & PENTESTING',
           bio_paragraph_1: initialAbout.bio_paragraph_1 || '',
           bio_paragraph_2: initialAbout.bio_paragraph_2 || '',
           motto_quote: initialAbout.motto_quote || 'BREAKING TO REINFORCE • RESEARCHING TO SECURE',
@@ -114,9 +82,6 @@ export default function BackgroundSection({
       }
       if (initialDomains !== undefined && initialDomains !== null) {
         setDomains(initialDomains);
-      }
-      if (initialMethodology && initialMethodology.length > 0) {
-        setMethodology(initialMethodology);
       }
       return;
     }
@@ -127,6 +92,8 @@ export default function BackgroundSection({
         if (data.success) {
           if (data.about) {
             setAbout({
+              status_badge: data.about.status_badge || 'ACTIVE RESEARCHER',
+              spec_text: data.about.spec_text || 'OFFENSIVE SECURITY & PENTESTING',
               bio_paragraph_1: data.about.bio_paragraph_1 || '',
               bio_paragraph_2: data.about.bio_paragraph_2 || '',
               motto_quote: data.about.motto_quote || 'BREAKING TO REINFORCE • RESEARCHING TO SECURE',
@@ -135,13 +102,10 @@ export default function BackgroundSection({
           if (Array.isArray(data.domains)) {
             setDomains(data.domains);
           }
-          if (Array.isArray(data.methodology) && data.methodology.length > 0) {
-            setMethodology(data.methodology);
-          }
         }
       })
       .catch((err) => console.error('Error fetching live about settings:', err));
-  }, [initialAbout, initialDomains, initialMethodology]);
+  }, [initialAbout, initialDomains]);
 
   return (
     <section className="relative w-full min-h-screen bg-[#ECE8DF] text-[#171514] p-6 sm:p-10 lg:p-12 border-t-2 border-[#171514]">
@@ -150,7 +114,7 @@ export default function BackgroundSection({
       <div className="absolute top-5 right-5 font-mono text-2xl font-light text-[#171514] select-none pointer-events-none">+</div>
 
       {/* Section Header */}
-      <div className="max-w-6xl mx-auto mb-12">
+      <div className="max-w-6xl mx-auto mb-10 sm:mb-12">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b-2 border-[#171514] pb-4">
           <div>
             <div className="font-mono text-xs font-semibold tracking-widest text-[#DF491E] mb-1">
@@ -163,92 +127,65 @@ export default function BackgroundSection({
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Dossier Biography & Philosophy */}
-        <div className="lg:col-span-7 space-y-6">
-          <HandDrawnFrame bgColor="#ECE8DF" padding="24px" className="space-y-4">
+      {/* Main Content: Operative Biography and Research Domains */}
+      <div className="max-w-6xl mx-auto space-y-8 sm:space-y-10">
+        {/* 1. Operative Biography */}
+        <HandDrawnFrame bgColor="#ECE8DF" padding="24px" className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#171514]/20 pb-2">
             <div className="font-mono text-xs font-bold tracking-wider text-[#DF491E] uppercase">
               // OPERATIVE BIOGRAPHY
             </div>
-            <p className="font-sans text-base sm:text-lg leading-relaxed text-[#171514]">
-              {about.bio_paragraph_1}
-            </p>
-            <p className="font-sans text-sm sm:text-base leading-relaxed text-[#5A5650]">
-              {about.bio_paragraph_2}
-            </p>
-            <div className="pt-2 flex items-center gap-3">
-              <span className="w-2.5 h-2.5 bg-[#DF491E] flex-shrink-0" />
-              <span className="font-mono text-xs font-bold tracking-widest text-[#171514] uppercase">
-                &ldquo;{about.motto_quote}&rdquo;
+            <div className="flex flex-wrap items-center gap-2">
+              {about.status_badge && (
+                <span className="font-mono text-[10px] font-bold px-2 py-0.5 bg-[#171514] text-[#ECE8DF] uppercase tracking-wider">
+                  {about.status_badge}
+                </span>
+              )}
+              {about.spec_text && (
+                <span className="font-mono text-[10px] font-bold text-[#5A5650] uppercase tracking-wider">
+                  [{about.spec_text}]
+                </span>
+              )}
+            </div>
+          </div>
+          <p className="font-sans text-base sm:text-lg leading-relaxed text-[#171514]">
+            {about.bio_paragraph_1}
+          </p>
+          <p className="font-sans text-sm sm:text-base leading-relaxed text-[#5A5650]">
+            {about.bio_paragraph_2}
+          </p>
+          <div className="pt-2 flex items-center gap-3">
+            <span className="w-2.5 h-2.5 bg-[#DF491E] flex-shrink-0" />
+            <span className="font-mono text-xs font-bold tracking-widest text-[#171514] uppercase">
+              &ldquo;{about.motto_quote}&rdquo;
+            </span>
+          </div>
+        </HandDrawnFrame>
+
+        {/* 2. Research Domains Grid */}
+        {domains.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-[#171514]/20 pb-2">
+              <div className="font-mono text-xs font-bold tracking-wider text-[#DF491E] uppercase">
+                // RESEARCH DOMAINS
+              </div>
+              <span className="font-mono text-[11px] text-[#5A5650] uppercase tracking-wider">
+                [ {domains.length} ACTIVE DOMAINS ]
               </span>
             </div>
-          </HandDrawnFrame>
-
-          {/* Research Domains / Profile Highlights Grid */}
-          {domains.length > 0 && (
-            <div className={`grid gap-4 ${domains.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
+            <div className={`grid gap-4 sm:gap-6 ${domains.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
               {domains.map((d, idx) => (
-                <div key={idx} className="border border-[#171514] p-4 bg-[#F2EFE7]">
-                  <div className="font-mono text-xs font-bold text-[#DF491E] mb-1">
-                    {d.domain_num} / {d.domain_code}
+                <div key={d.id || idx} className="border border-[#171514] p-5 bg-[#F2EFE7] hover:border-[#DF491E] transition-colors">
+                  <div className="font-mono text-xs font-bold text-[#DF491E] mb-1.5 flex items-center justify-between">
+                    <span>{d.domain_num} / {d.domain_code}</span>
                   </div>
-                  <h3 className="font-display text-xl font-bold mb-2">{d.title}</h3>
-                  <p className="text-xs text-[#5A5650] leading-relaxed">{d.description}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Right Column: Workflow Diagram & Engagement Methodology */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Taped Diagram from Asset Sheet */}
-          <div className="relative border-2 border-[#171514] p-4 bg-[#ECE8DF] shadow-md">
-            <div className="font-mono text-xs font-bold text-[#171514] mb-2 flex items-center justify-between">
-              <span>// RECON-TO-REPORT WORKFLOW</span>
-              <span className="text-[#DF491E]">[ DIAGRAM 01 ]</span>
-            </div>
-            <div className="relative w-full max-w-[320px] mx-auto h-[220px] flex items-center justify-center">
-              <ResponsiveImage
-                src="/assets/taped_paper_diag.png"
-                alt="Reconnaissance attack tree workflow"
-                fit="contain"
-                focalPoint="center"
-                width={305}
-                height={275}
-                containerClassName="bg-transparent h-full flex items-center justify-center"
-                className="mix-blend-multiply"
-              />
-            </div>
-            <div className="font-hand text-lg text-center font-bold text-[#171514] mt-2">
-              Iterative threat identification across attack surfaces.
-            </div>
-          </div>
-
-          {/* Research Methodology Timeline */}
-          <div className="border border-[#171514] p-5 bg-[#F2EFE7]">
-            <div className="font-mono text-xs font-bold tracking-wider text-[#DF491E] mb-4">
-              // ENGAGEMENT METHODOLOGY
-            </div>
-            <div className="space-y-4 font-mono text-xs">
-              {methodology.map((m, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <span
-                    className={`px-1.5 py-0.5 font-bold ${
-                      idx === 2 ? 'bg-[#DF491E] text-[#171514]' : 'bg-[#171514] text-[#ECE8DF]'
-                    }`}
-                  >
-                    {m.step_num}
-                  </span>
-                  <div>
-                    <div className="font-bold text-[#171514] uppercase">{m.title}</div>
-                    <div className="text-[#5A5650]">{m.description}</div>
-                  </div>
+                  <h3 className="font-display text-xl sm:text-2xl font-bold mb-2 text-[#171514]">{d.title}</h3>
+                  <p className="text-xs sm:text-sm text-[#5A5650] leading-relaxed font-sans">{d.description}</p>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   );

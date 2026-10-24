@@ -13,7 +13,6 @@ import type {
   HeroContent,
   AboutContent,
   ResearchDomain,
-  MethodologyStep,
   SkillCategory,
   ResearchPost,
 } from '@/lib/cms';
@@ -24,7 +23,6 @@ export interface PortfolioClientProps {
   initialHero?: HeroContent | null;
   initialAbout?: AboutContent | null;
   initialDomains?: ResearchDomain[] | null;
-  initialMethodology?: MethodologyStep[] | null;
   initialSkills?: SkillCategory[] | null;
   initialTools?: GitHubTool[] | null;
   initialResearch?: ResearchPost[] | null;
@@ -37,7 +35,6 @@ export default function PortfolioClient({
   initialHero,
   initialAbout,
   initialDomains,
-  initialMethodology,
   initialSkills,
   initialTools,
   initialResearch,
@@ -125,7 +122,6 @@ export default function PortfolioClient({
           <BackgroundSection
             initialAbout={initialAbout}
             initialDomains={initialDomains}
-            initialMethodology={initialMethodology}
           />
         </div>
 

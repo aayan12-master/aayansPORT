@@ -40,7 +40,6 @@ export default async function HomePage() {
       initialHero={hero}
       initialAbout={aboutData?.about || null}
       initialDomains={aboutData?.domains || null}
-      initialMethodology={aboutData?.methodology || null}
       initialSkills={skills}
       initialTools={initialTools}
       initialResearch={research}
