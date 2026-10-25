@@ -6,6 +6,14 @@ import HandDrawnButton from './HandDrawnButton';
 
 import type { SiteSettings } from '@/lib/cms';
 import InlineEditable from './admin/InlineEditable';
+import {
+  normalizeSocialAccounts,
+  isValidSocialUrl,
+  SocialIcon,
+  formatSocialIdentity,
+  useDockHoverZoom,
+} from '@/lib/socials';
+import SocialAccountLink from './SocialAccountLink';
 
 export interface CollaborateSectionProps {
   initialSettings?: SiteSettings | null;
@@ -28,14 +36,15 @@ export default function CollaborateSection({
     honeypot: '',
   });
 
-  const [settings, setSettings] = useState(() => ({
-    contact_email: initialSettings?.contact_email || 'contact@aayan-sec.com',
-    github_url: initialSettings?.github_url || 'https://github.com/aayan-sec',
-    linkedin_url: initialSettings?.linkedin_url || 'https://linkedin.com/in/aayan-sec',
-    twitter_url: initialSettings?.twitter_url || 'https://twitter.com/aayan_sec',
-    status_text: initialSettings?.status_text || 'OPEN FOR COLLABORATION',
-    open_for_collaboration: initialSettings?.open_for_collaboration ?? true,
-  }));
+  const [settings, setSettings] = useState<Partial<SiteSettings>>(() => initialSettings || {
+    contact_email: 'contact@aayan-sec.com',
+    github_url: 'https://github.com/aayan-sec',
+    linkedin_url: 'https://linkedin.com/in/aayan-sec',
+    twitter_url: 'https://twitter.com/aayan_sec',
+    status_text: 'OPEN FOR COLLABORATION',
+    open_for_collaboration: true,
+    social_links: [],
+  });
 
   const currentSettings = settingsOverride || settings;
 
@@ -44,14 +53,7 @@ export default function CollaborateSection({
 
   useEffect(() => {
     if (initialSettings) {
-      setSettings({
-        contact_email: initialSettings.contact_email || 'contact@aayan-sec.com',
-        github_url: initialSettings.github_url || 'https://github.com/aayan-sec',
-        linkedin_url: initialSettings.linkedin_url || 'https://linkedin.com/in/aayan-sec',
-        twitter_url: initialSettings.twitter_url || 'https://twitter.com/aayan_sec',
-        status_text: initialSettings.status_text || 'OPEN FOR COLLABORATION',
-        open_for_collaboration: initialSettings.open_for_collaboration ?? true,
-      });
+      setSettings(initialSettings);
       return;
     }
 
@@ -59,18 +61,24 @@ export default function CollaborateSection({
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.settings) {
-          setSettings({
-            contact_email: data.settings.contact_email || 'contact@aayan-sec.com',
-            github_url: data.settings.github_url || 'https://github.com/aayan-sec',
-            linkedin_url: data.settings.linkedin_url || 'https://linkedin.com/in/aayan-sec',
-            twitter_url: data.settings.twitter_url || 'https://twitter.com/aayan_sec',
-            status_text: data.settings.status_text || 'OPEN FOR COLLABORATION',
-            open_for_collaboration: data.settings.open_for_collaboration ?? true,
-          });
+          setSettings(data.settings);
         }
       })
       .catch((err) => console.error('Error fetching collaborate settings:', err));
   }, [initialSettings]);
+
+  const socialAccounts = normalizeSocialAccounts(currentSettings).filter(
+    (acc) => acc.enabled && (isEditingMode || isValidSocialUrl(acc.url))
+  );
+
+  const {
+    containerRef: dockContainerRef,
+    iconRefs,
+    handlePointerMove,
+    handlePointerLeave,
+    handleFocusIcon,
+    handleBlurIcon,
+  } = useDockHoverZoom({ maxScale: 1.35, radius: 52 });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,9 +152,8 @@ export default function CollaborateSection({
                 <button
                   type="button"
                   onClick={() => onSettingsChange('open_for_collaboration', !currentSettings.open_for_collaboration)}
-                  className={`ml-auto font-mono text-[9px] font-bold px-1.5 py-0.5 border border-[#171514] cursor-pointer ${
-                    currentSettings.open_for_collaboration !== false ? 'bg-[#DF491E] text-[#171514]' : 'bg-[#ECE8DF] text-[#5A5650]'
-                  }`}
+                  className={`ml-auto font-mono text-[9px] font-bold px-1.5 py-0.5 border border-[#171514] cursor-pointer ${currentSettings.open_for_collaboration !== false ? 'bg-[#DF491E] text-[#171514]' : 'bg-[#ECE8DF] text-[#5A5650]'
+                    }`}
                   title="Toggle active status indicator"
                 >
                   {currentSettings.open_for_collaboration !== false ? 'ACTIVE' : 'INACTIVE'}
@@ -156,60 +163,89 @@ export default function CollaborateSection({
           </HandDrawnFrame>
 
           {/* Direct channels */}
-          <div className="border border-[#171514] p-5 bg-[#F2EFE7] space-y-3 font-mono text-xs">
-            <div className="font-bold text-[#DF491E] text-xs tracking-wider mb-2">
-              // VERIFIED DIRECT CHANNELS
-            </div>
-            <div className="flex items-center justify-between border-b border-[#171514]/20 pb-2">
-              <span className="text-[#5A5650]">EMAIL:</span>
-              <div className="font-bold text-[#171514]">
-                <InlineEditable
-                  value={currentSettings.contact_email}
-                  onChange={(val) => onSettingsChange?.('contact_email', val)}
-                  isEditingMode={isEditingMode}
-                  label="Contact Email"
-                />
-                {!isEditingMode && ' ↗'}
+          <div className="border border-[#171514] p-5 bg-[#F2EFE7] font-mono text-xs flex flex-col">
+            {/* Header with endpoint counter */}
+            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-[#171514]/20 flex-shrink-0">
+              <div className="font-bold text-[#DF491E] text-xs tracking-wider">
+                // VERIFIED DIRECT CHANNELS
+              </div>
+              <div className="text-[10px] text-[#5A5650] flex items-center gap-1.5 font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
+                <span>{socialAccounts.length + 1} ENDPOINTS</span>
               </div>
             </div>
-            <div className="flex items-center justify-between border-b border-[#171514]/20 pb-2">
-              <span className="text-[#5A5650]">GITHUB:</span>
-              <div className="font-bold text-[#171514]">
-                <InlineEditable
-                  value={currentSettings.github_url}
-                  onChange={(val) => onSettingsChange?.('github_url', val)}
-                  isEditingMode={isEditingMode}
-                  label="GitHub URL"
-                />
-                {!isEditingMode && ' ↗'}
+
+            {/* Primary Contact Email (Pinned at top, outside scroll area) */}
+            <div className={`flex items-center justify-between gap-3 min-w-0 pb-2.5 flex-shrink-0 ${socialAccounts.length > 0 ? 'border-b border-[#171514]/20' : ''}`}>
+              <span className="text-[#5A5650] flex items-center gap-2 uppercase font-mono flex-shrink-0">
+                <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 overflow-visible">
+                  <svg className="w-3.5 h-3.5 text-[#171514] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                    <polyline points="22,6 12,13 2,6" />
+                  </svg>
+                </div>
+                <span className="font-medium tracking-wide">EMAIL:</span>
+              </span>
+              <div className="font-bold text-[#171514] text-right min-w-0 flex-1 flex justify-end">
+                {isEditingMode ? (
+                  <InlineEditable
+                    value={currentSettings.contact_email || ''}
+                    onChange={(val) => onSettingsChange?.('contact_email', val)}
+                    isEditingMode={isEditingMode}
+                    label="Contact Email"
+                  />
+                ) : (
+                  <a
+                    href={`mailto:${currentSettings.contact_email}`}
+                    aria-label={`Email: ${currentSettings.contact_email}`}
+                    className="hover:text-[#DF491E] transition-colors truncate inline-flex items-center gap-1 group max-w-full font-mono text-xs focus:outline-none focus:text-[#DF491E]"
+                  >
+                    <span className="truncate">{currentSettings.contact_email}</span>
+                    <span className="text-[10px] flex-shrink-0 opacity-70 group-hover:opacity-100 group-focus:opacity-100">↗</span>
+                  </a>
+                )}
               </div>
             </div>
-            <div className="flex items-center justify-between border-b border-[#171514]/20 pb-2">
-              <span className="text-[#5A5650]">LINKEDIN:</span>
-              <div className="font-bold text-[#171514]">
-                <InlineEditable
-                  value={currentSettings.linkedin_url}
-                  onChange={(val) => onSettingsChange?.('linkedin_url', val)}
-                  isEditingMode={isEditingMode}
-                  label="LinkedIn URL"
-                />
-                {!isEditingMode && ' ↗'}
+
+            {/* Scrollable Dynamic Verified Social Channels with macOS Dock Hover Zoom */}
+            {socialAccounts.length > 0 && (
+              <div
+                ref={dockContainerRef}
+                onPointerMove={handlePointerMove}
+                onPointerLeave={handlePointerLeave}
+                tabIndex={0}
+                role="region"
+                aria-label="Verified social endpoints scroll list"
+                className="max-h-[250px] overflow-y-auto overflow-x-hidden social-scrollbar pr-1.5 pt-2 space-y-2.5 focus:outline-none focus-visible:ring-1 focus-visible:ring-[#DF491E]"
+              >
+                {socialAccounts.map((acc, index) => {
+                  const isLast = index === socialAccounts.length - 1;
+                  return (
+                    <SocialAccountLink
+                      key={acc.id}
+                      account={acc}
+                      variant="collaborate"
+                      isLast={isLast}
+                      iconRef={(el) => {
+                        iconRefs.current[index] = el;
+                      }}
+                      onFocus={() => handleFocusIcon(index)}
+                      onBlur={() => handleBlurIcon(index)}
+                      isEditingMode={isEditingMode}
+                      onUrlChange={(newUrl) => {
+                        const updated = normalizeSocialAccounts(currentSettings).map((item) =>
+                          item.id === acc.id ? { ...item, url: newUrl } : item
+                        );
+                        onSettingsChange?.('social_links', updated);
+                      }}
+                    />
+                  );
+                })}
               </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[#5A5650]">TWITTER (X):</span>
-              <div className="font-bold text-[#171514]">
-                <InlineEditable
-                  value={currentSettings.twitter_url}
-                  onChange={(val) => onSettingsChange?.('twitter_url', val)}
-                  isEditingMode={isEditingMode}
-                  label="Twitter (X) URL"
-                />
-                {!isEditingMode && ' ↗'}
-              </div>
-            </div>
+            )}
           </div>
         </div>
+
 
         {/* Right Column: Hand-drawn Transmission Form */}
         <div className="lg:col-span-7">

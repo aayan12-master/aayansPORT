@@ -67,6 +67,40 @@ body {
   background: var(--accent-orange);
 }
 
+/* Thin subtle scrollbar for dense social account lists */
+.social-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.social-scrollbar::-webkit-scrollbar-track {
+  background: #ECE8DF;
+  border-left: 1px solid rgba(23, 21, 20, 0.15);
+}
+.social-scrollbar::-webkit-scrollbar-thumb {
+  background: #171514;
+  border-radius: 1px;
+}
+.social-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #DF491E;
+}
+.social-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #171514 #ECE8DF;
+}
+
+/* Restrained macOS Dock-style hover magnification for social icons */
+.dock-social-icon {
+  transform-origin: center center;
+  transition: transform 120ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dock-social-icon {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
 /* Technical typography utilities */
 .font-display {
   font-family: var(--font-display);
@@ -213,6 +247,48 @@ body {
 
 .animate-terminal-backdrop {
   animation: terminal-backdrop-fade 200ms ease-out forwards;
+}
+
+/* Promotional/Metrics Bar Fluid Crossfade & Slide Transitions */
+@keyframes promo-fade-out-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes promo-fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-promo-exit {
+  animation: promo-fade-out-up 380ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-promo-enter {
+  animation: promo-fade-in-up 380ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-promo-exit {
+    display: none !important;
+  }
+  .animate-promo-enter {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* Constellation organic ambient floating motion (2-4px offset, 5-9s duration) */

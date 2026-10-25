@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import HandDrawnButton from './HandDrawnButton';
 import HandDrawnFrame from './HandDrawnFrame';
 
-import type { HeroContent } from '@/lib/cms';
+import type { HeroContent, HeroSpotlightMessage } from '@/lib/cms';
 import InlineEditable from './admin/InlineEditable';
 
 export interface HeroMasterpieceProps {
@@ -16,7 +16,8 @@ export interface HeroMasterpieceProps {
   writeupsCount?: number;
   isEditingMode?: boolean;
   heroOverride?: HeroContent | null;
-  onHeroChange?: (field: keyof HeroContent, value: string) => void;
+  onHeroChange?: (field: keyof HeroContent, value: any) => void;
+  onOpenHeroDrawer?: () => void;
 }
 
 export default function HeroMasterpiece({
@@ -28,6 +29,7 @@ export default function HeroMasterpiece({
   isEditingMode = false,
   heroOverride,
   onHeroChange,
+  onOpenHeroDrawer,
 }: HeroMasterpieceProps) {
   const [liveProjectsCount, setLiveProjectsCount] = useState<number>(() =>
     typeof projectsCount === 'number' ? projectsCount : 0
@@ -36,7 +38,8 @@ export default function HeroMasterpiece({
     typeof writeupsCount === 'number' ? writeupsCount : 0
   );
 
-  const [hero, setHero] = useState(() => ({
+  const [hero, setHero] = useState<HeroContent>(() => ({
+    id: initialHero?.id || 'current',
     brand_name: initialHero?.brand_name || 'AAYAN.',
     headline: initialHero?.headline || 'SECURITY RESEARCHER & PENTESTER',
     manifesto_line_1: initialHero?.manifesto_line_1 || 'EXPLORING SYSTEMS.',
@@ -44,18 +47,210 @@ export default function HeroMasterpiece({
     manifesto_line_3: initialHero?.manifesto_line_3 || 'CREATING IMPACT.',
     status_label: initialHero?.status_label || 'OPEN FOR COLLABORATION',
     status_subtext: initialHero?.status_subtext || 'Research • Bug Bounty • Projects',
+    stat_projects: initialHero?.stat_projects || '10+',
+    stat_writeups: initialHero?.stat_writeups || '5+',
     stat_curiosity: initialHero?.stat_curiosity || '∞',
     quote: initialHero?.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
     cta_text: initialHero?.cta_text || 'VIEW MY RESEARCH',
+    cta_target: initialHero?.cta_target || 'research',
     descriptor_1: initialHero?.descriptor_1 || '[ OFFENSIVE SECURITY ]',
     descriptor_2: initialHero?.descriptor_2 || '[ WEB / MOBILE / CLOUD ]',
     descriptor_3: initialHero?.descriptor_3 || '[ RESEARCH • EXPLOIT • BUILD ]',
     wordmark_prefix: initialHero?.wordmark_prefix || 'AAYAN',
     wordmark_suffix: initialHero?.wordmark_suffix || '.Sec',
     role_title: initialHero?.role_title || 'SECURITY RESEARCHER / PENTESTER',
+    stat_1_label: initialHero?.stat_1_label || 'PROJECTS',
+    stat_2_label: initialHero?.stat_2_label || 'WRITE-UPS',
+    stat_3_label: initialHero?.stat_3_label || 'CURIOSITY',
+    stat_1_override: initialHero?.stat_1_override || '',
+    stat_2_override: initialHero?.stat_2_override || '',
+    stat_1_enabled: initialHero?.stat_1_enabled !== false,
+    stat_2_enabled: initialHero?.stat_2_enabled !== false,
+    stat_3_enabled: initialHero?.stat_3_enabled !== false,
+    spotlight_enabled: Boolean(initialHero?.spotlight_enabled),
+    spotlight_mode: initialHero?.spotlight_mode || 'alternate',
+    spotlight_auto_rotate: initialHero?.spotlight_auto_rotate !== false,
+    spotlight_title: initialHero?.spotlight_title || 'OPEN FOR COLLABORATION',
+    spotlight_subtitle: initialHero?.spotlight_subtitle || 'Web Security • Authorized Penetration Testing',
+    spotlight_cta_text: initialHero?.spotlight_cta_text || 'INITIATE CONTACT →',
+    spotlight_cta_url: initialHero?.spotlight_cta_url || '#collaborate',
+    spotlight_messages: initialHero?.spotlight_messages || [],
   }));
 
   const currentHero = heroOverride || hero;
+
+  // Accessibility: detect reduced motion preference
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      setPrefersReducedMotion(mediaQuery.matches);
+      const listener = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+      mediaQuery.addEventListener('change', listener);
+      return () => mediaQuery.removeEventListener('change', listener);
+    }
+  }, []);
+
+  const isSpotlightEnabled = Boolean(currentHero.spotlight_enabled);
+  const spotlightMode = currentHero.spotlight_mode || 'alternate';
+  const autoRotate = currentHero.spotlight_auto_rotate !== false && !prefersReducedMotion;
+
+  const [activeView, setActiveView] = useState<'stats' | 'spotlight'>(() => {
+    if (currentHero.spotlight_enabled && currentHero.spotlight_mode === 'spotlight_only') {
+      return 'spotlight';
+    }
+    return 'stats';
+  });
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const enabledMessages: HeroSpotlightMessage[] = useMemo(() => {
+    const list = Array.isArray(currentHero.spotlight_messages) ? currentHero.spotlight_messages : [];
+    return list.filter((m) => m && m.enabled !== false);
+  }, [currentHero.spotlight_messages]);
+
+  useEffect(() => {
+    if (!isSpotlightEnabled || spotlightMode === 'stats_only') {
+      setActiveView('stats');
+    } else if (spotlightMode === 'spotlight_only') {
+      setActiveView('spotlight');
+    }
+  }, [isSpotlightEnabled, spotlightMode]);
+
+  const [rotationTrigger, setRotationTrigger] = useState(0);
+
+  const resetAutoRotateTimer = useCallback(() => {
+    setRotationTrigger((prev) => prev + 1);
+  }, []);
+
+  useEffect(() => {
+    if (!isSpotlightEnabled || spotlightMode !== 'alternate' || !autoRotate || isPaused) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setActiveView((prev) => {
+        if (prev === 'stats') {
+          return 'spotlight';
+        } else {
+          if (enabledMessages.length > 1) {
+            setCurrentMessageIndex((idx) => (idx + 1) % enabledMessages.length);
+          }
+          return 'stats';
+        }
+      });
+    }, 7000);
+
+    return () => clearInterval(interval);
+  }, [isSpotlightEnabled, spotlightMode, autoRotate, isPaused, enabledMessages.length, rotationTrigger]);
+
+  const activeMessage = enabledMessages[currentMessageIndex] || null;
+  const spotlightTitle = activeMessage?.title || currentHero.spotlight_title || 'OPEN FOR COLLABORATION';
+  const spotlightSubtitle = activeMessage?.subtitle || currentHero.spotlight_subtitle || 'Web Security • Authorized Penetration Testing';
+  const spotlightBadge = activeMessage?.badge || '// SPOTLIGHT';
+  const spotlightCtaText = activeMessage?.cta_text ?? (currentHero.spotlight_cta_text || 'INITIATE CONTACT →');
+  const spotlightCtaUrl = activeMessage?.cta_url || currentHero.spotlight_cta_url || '#collaborate';
+
+  const stat1Enabled = currentHero.stat_1_enabled !== false;
+  const stat2Enabled = currentHero.stat_2_enabled !== false;
+  const stat3Enabled = currentHero.stat_3_enabled !== false;
+
+  interface PromoContentSnapshot {
+    key: string;
+    view: 'stats' | 'spotlight';
+    messageIndex: number;
+    spotlightTitle: string;
+    spotlightSubtitle: string;
+    spotlightCtaText?: string;
+    spotlightCtaUrl?: string;
+  }
+
+  const currentContentKey = activeView === 'stats' ? 'stats' : `spotlight-${currentMessageIndex}`;
+
+  const initialSnapshot: PromoContentSnapshot = {
+    key: currentContentKey,
+    view: activeView,
+    messageIndex: currentMessageIndex,
+    spotlightTitle,
+    spotlightSubtitle,
+    spotlightCtaText,
+    spotlightCtaUrl,
+  };
+
+  const [displayContent, setDisplayContent] = useState<PromoContentSnapshot>(() => initialSnapshot);
+  const [outgoingContent, setOutgoingContent] = useState<PromoContentSnapshot | null>(null);
+  const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentSnapshotRef = useRef<PromoContentSnapshot>(initialSnapshot);
+
+  // Clean up any pending transition timer when component unmounts
+  useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const isReduced =
+      prefersReducedMotion ||
+      (typeof window !== 'undefined' &&
+        window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+    const nextSnapshot: PromoContentSnapshot = {
+      key: currentContentKey,
+      view: activeView,
+      messageIndex: currentMessageIndex,
+      spotlightTitle,
+      spotlightSubtitle,
+      spotlightCtaText,
+      spotlightCtaUrl,
+    };
+
+    if (currentSnapshotRef.current.key === currentContentKey) {
+      currentSnapshotRef.current = nextSnapshot;
+      setDisplayContent(nextSnapshot);
+      return;
+    }
+
+    if (isReduced) {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+      currentSnapshotRef.current = nextSnapshot;
+      setDisplayContent(nextSnapshot);
+      setOutgoingContent(null);
+      return;
+    }
+
+    const outgoing = currentSnapshotRef.current;
+    currentSnapshotRef.current = nextSnapshot;
+
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+
+    setOutgoingContent(outgoing);
+    setDisplayContent(nextSnapshot);
+
+    transitionTimerRef.current = setTimeout(() => {
+      setOutgoingContent(null);
+      transitionTimerRef.current = null;
+    }, 380);
+  }, [
+    currentContentKey,
+    activeView,
+    currentMessageIndex,
+    spotlightTitle,
+    spotlightSubtitle,
+    spotlightCtaText,
+    spotlightCtaUrl,
+    prefersReducedMotion,
+  ]);
 
   useEffect(() => {
     if (typeof projectsCount === 'number') {
@@ -69,6 +264,7 @@ export default function HeroMasterpiece({
   useEffect(() => {
     if (initialHero) {
       setHero({
+        id: initialHero.id || 'current',
         brand_name: initialHero.brand_name || 'AAYAN.',
         headline: initialHero.headline || 'SECURITY RESEARCHER & PENTESTER',
         manifesto_line_1: initialHero.manifesto_line_1 || 'EXPLORING SYSTEMS.',
@@ -76,15 +272,34 @@ export default function HeroMasterpiece({
         manifesto_line_3: initialHero.manifesto_line_3 || 'CREATING IMPACT.',
         status_label: initialHero.status_label || 'OPEN FOR COLLABORATION',
         status_subtext: initialHero.status_subtext || 'Research • Bug Bounty • Projects',
+        stat_projects: initialHero.stat_projects || '10+',
+        stat_writeups: initialHero.stat_writeups || '5+',
         stat_curiosity: initialHero.stat_curiosity || '∞',
         quote: initialHero.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
         cta_text: initialHero.cta_text || 'VIEW MY RESEARCH',
+        cta_target: initialHero.cta_target || 'research',
         descriptor_1: initialHero.descriptor_1 || '[ OFFENSIVE SECURITY ]',
         descriptor_2: initialHero.descriptor_2 || '[ WEB / MOBILE / CLOUD ]',
         descriptor_3: initialHero.descriptor_3 || '[ RESEARCH • EXPLOIT • BUILD ]',
         wordmark_prefix: initialHero.wordmark_prefix || 'AAYAN',
         wordmark_suffix: initialHero.wordmark_suffix || '.Sec',
         role_title: initialHero.role_title || 'SECURITY RESEARCHER / PENTESTER',
+        stat_1_label: initialHero.stat_1_label || 'PROJECTS',
+        stat_2_label: initialHero.stat_2_label || 'WRITE-UPS',
+        stat_3_label: initialHero.stat_3_label || 'CURIOSITY',
+        stat_1_override: initialHero.stat_1_override || '',
+        stat_2_override: initialHero.stat_2_override || '',
+        stat_1_enabled: initialHero.stat_1_enabled !== false,
+        stat_2_enabled: initialHero.stat_2_enabled !== false,
+        stat_3_enabled: initialHero.stat_3_enabled !== false,
+        spotlight_enabled: Boolean(initialHero.spotlight_enabled),
+        spotlight_mode: initialHero.spotlight_mode || 'alternate',
+        spotlight_auto_rotate: initialHero.spotlight_auto_rotate !== false,
+        spotlight_title: initialHero.spotlight_title || 'OPEN FOR COLLABORATION',
+        spotlight_subtitle: initialHero.spotlight_subtitle || 'Web Security • Authorized Penetration Testing',
+        spotlight_cta_text: initialHero.spotlight_cta_text || 'INITIATE CONTACT →',
+        spotlight_cta_url: initialHero.spotlight_cta_url || '#collaborate',
+        spotlight_messages: initialHero.spotlight_messages || [],
       });
       return;
     }
@@ -95,6 +310,7 @@ export default function HeroMasterpiece({
         if (data.success) {
           if (data.hero) {
             setHero({
+              id: data.hero.id || 'current',
               brand_name: data.hero.brand_name || 'AAYAN.',
               headline: data.hero.headline || 'SECURITY RESEARCHER & PENTESTER',
               manifesto_line_1: data.hero.manifesto_line_1 || 'EXPLORING SYSTEMS.',
@@ -102,15 +318,34 @@ export default function HeroMasterpiece({
               manifesto_line_3: data.hero.manifesto_line_3 || 'CREATING IMPACT.',
               status_label: data.hero.status_label || 'OPEN FOR COLLABORATION',
               status_subtext: data.hero.status_subtext || 'Research • Bug Bounty • Projects',
+              stat_projects: data.hero.stat_projects || '10+',
+              stat_writeups: data.hero.stat_writeups || '5+',
               stat_curiosity: data.hero.stat_curiosity || '∞',
               quote: data.hero.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
               cta_text: data.hero.cta_text || 'VIEW MY RESEARCH',
+              cta_target: data.hero.cta_target || 'research',
               descriptor_1: data.hero.descriptor_1 || '[ OFFENSIVE SECURITY ]',
               descriptor_2: data.hero.descriptor_2 || '[ WEB / MOBILE / CLOUD ]',
               descriptor_3: data.hero.descriptor_3 || '[ RESEARCH • EXPLOIT • BUILD ]',
               wordmark_prefix: data.hero.wordmark_prefix || 'AAYAN',
               wordmark_suffix: data.hero.wordmark_suffix || '.Sec',
               role_title: data.hero.role_title || 'SECURITY RESEARCHER / PENTESTER',
+              stat_1_label: data.hero.stat_1_label || 'PROJECTS',
+              stat_2_label: data.hero.stat_2_label || 'WRITE-UPS',
+              stat_3_label: data.hero.stat_3_label || 'CURIOSITY',
+              stat_1_override: data.hero.stat_1_override || '',
+              stat_2_override: data.hero.stat_2_override || '',
+              stat_1_enabled: data.hero.stat_1_enabled !== false,
+              stat_2_enabled: data.hero.stat_2_enabled !== false,
+              stat_3_enabled: data.hero.stat_3_enabled !== false,
+              spotlight_enabled: Boolean(data.hero.spotlight_enabled),
+              spotlight_mode: data.hero.spotlight_mode || 'alternate',
+              spotlight_auto_rotate: data.hero.spotlight_auto_rotate !== false,
+              spotlight_title: data.hero.spotlight_title || 'OPEN FOR COLLABORATION',
+              spotlight_subtitle: data.hero.spotlight_subtitle || 'Web Security • Authorized Penetration Testing',
+              spotlight_cta_text: data.hero.spotlight_cta_text || 'INITIATE CONTACT →',
+              spotlight_cta_url: data.hero.spotlight_cta_url || '#collaborate',
+              spotlight_messages: data.hero.spotlight_messages || [],
             });
           }
           if (typeof data.projectsCount === 'number') {
@@ -123,6 +358,175 @@ export default function HeroMasterpiece({
       })
       .catch((err) => console.error('Error fetching live hero settings:', err));
   }, [initialHero]);
+
+  const renderPromoSlot = (content: PromoContentSnapshot, isInteractive: boolean) => {
+    if (content.view === 'stats') {
+      return (
+        <div className="flex items-center justify-between w-full min-h-[44px] sm:min-h-[53px]">
+          {stat1Enabled && (
+            <div className="text-center flex-1 min-w-0">
+              <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none">
+                {isInteractive ? (
+                  <InlineEditable
+                    value={currentHero.stat_1_override || String(liveProjectsCount)}
+                    onChange={(val) => onHeroChange?.('stat_1_override', val)}
+                    isEditingMode={isEditingMode}
+                    label="Projects Count"
+                    className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none"
+                  />
+                ) : (
+                  <span>{currentHero.stat_1_override || String(liveProjectsCount)}</span>
+                )}
+              </div>
+              <div className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase mt-0.5 truncate">
+                {isInteractive ? (
+                  <InlineEditable
+                    value={currentHero.stat_1_label || 'PROJECTS'}
+                    onChange={(val) => onHeroChange?.('stat_1_label', val)}
+                    isEditingMode={isEditingMode}
+                    label="Stat 1 Label"
+                    className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase"
+                  />
+                ) : (
+                  <span>{currentHero.stat_1_label || 'PROJECTS'}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {stat1Enabled && (stat2Enabled || stat3Enabled) && (
+            <div className="text-[#BCB8B1] font-mono text-lg font-light select-none px-1 flex-shrink-0">—</div>
+          )}
+
+          {stat2Enabled && (
+            <div className="text-center flex-1 min-w-0">
+              <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none">
+                {isInteractive ? (
+                  <InlineEditable
+                    value={currentHero.stat_2_override || String(liveWriteupsCount)}
+                    onChange={(val) => onHeroChange?.('stat_2_override', val)}
+                    isEditingMode={isEditingMode}
+                    label="Writeups Count"
+                    className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none"
+                  />
+                ) : (
+                  <span>{currentHero.stat_2_override || String(liveWriteupsCount)}</span>
+                )}
+              </div>
+              <div className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase mt-0.5 truncate">
+                {isInteractive ? (
+                  <InlineEditable
+                    value={currentHero.stat_2_label || 'WRITE-UPS'}
+                    onChange={(val) => onHeroChange?.('stat_2_label', val)}
+                    isEditingMode={isEditingMode}
+                    label="Stat 2 Label"
+                    className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase"
+                  />
+                ) : (
+                  <span>{currentHero.stat_2_label || 'WRITE-UPS'}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {stat2Enabled && stat3Enabled && (
+            <div className="text-[#BCB8B1] font-mono text-lg font-light select-none px-1 flex-shrink-0">—</div>
+          )}
+
+          {stat3Enabled && (
+            <div className="text-center flex-1 min-w-0">
+              <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none">
+                {isInteractive ? (
+                  <InlineEditable
+                    value={currentHero.stat_curiosity || '∞'}
+                    onChange={(val) => onHeroChange?.('stat_curiosity', val)}
+                    isEditingMode={isEditingMode}
+                    label="Curiosity Symbol"
+                    className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none"
+                  />
+                ) : (
+                  <span>{currentHero.stat_curiosity || '∞'}</span>
+                )}
+              </div>
+              <div className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase mt-0.5 truncate">
+                {isInteractive ? (
+                  <InlineEditable
+                    value={currentHero.stat_3_label || 'CURIOSITY'}
+                    onChange={(val) => onHeroChange?.('stat_3_label', val)}
+                    isEditingMode={isEditingMode}
+                    label="Stat 3 Label"
+                    className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase"
+                  />
+                ) : (
+                  <span>{currentHero.stat_3_label || 'CURIOSITY'}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col justify-center min-w-0 py-0.5 min-h-[44px] sm:min-h-[53px]">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="font-display text-sm sm:text-base font-black text-[#171514] leading-tight truncate uppercase tracking-wider min-w-0">
+            {isInteractive ? (
+              <InlineEditable
+                value={content.spotlightTitle}
+                onChange={(val) => onHeroChange?.('spotlight_title', val)}
+                isEditingMode={isEditingMode}
+                label="Spotlight Title"
+                className="font-display text-sm sm:text-base font-black text-[#171514] leading-tight truncate uppercase tracking-wider"
+              />
+            ) : (
+              <span>{content.spotlightTitle}</span>
+            )}
+          </div>
+          {content.spotlightCtaText && (
+            <a
+              href={content.spotlightCtaUrl || '#collaborate'}
+              onClick={(e) => {
+                const url = content.spotlightCtaUrl || '#collaborate';
+                if (url.startsWith('#')) {
+                  e.preventDefault();
+                  const el = document.querySelector(url);
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="font-mono text-[10px] sm:text-[11px] font-bold text-[#DF491E] hover:text-[#171514] hover:underline flex-shrink-0 flex items-center gap-0.5 transition-colors"
+              title={content.spotlightCtaText}
+            >
+              {isInteractive ? (
+                <InlineEditable
+                  value={content.spotlightCtaText}
+                  onChange={(val) => onHeroChange?.('spotlight_cta_text', val)}
+                  isEditingMode={isEditingMode}
+                  label="Spotlight CTA Text"
+                  className="font-mono text-[10px] sm:text-[11px] font-bold text-[#DF491E]"
+                />
+              ) : (
+                <span>{content.spotlightCtaText}</span>
+              )}
+            </a>
+          )}
+        </div>
+        <div className="text-[10px] sm:text-[11px] tracking-tight text-[#5A5650] font-mono truncate mt-0.5">
+          {isInteractive ? (
+            <InlineEditable
+              value={content.spotlightSubtitle}
+              onChange={(val) => onHeroChange?.('spotlight_subtitle', val)}
+              isEditingMode={isEditingMode}
+              label="Spotlight Subtitle"
+              className="text-[10px] sm:text-[11px] tracking-tight text-[#5A5650] font-mono truncate"
+            />
+          ) : (
+            <span>{content.spotlightSubtitle}</span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <section className="relative w-full min-h-screen bg-[#ECE8DF] text-[#171514] overflow-hidden flex flex-col justify-between p-6 sm:p-8 lg:p-10 xl:p-12">
@@ -359,42 +763,157 @@ export default function HeroMasterpiece({
             </div>
           </div>
 
-          {/* Stats Bar with sketchy subtle borders */}
-          <div className="relative border border-[#171514]/60 p-3 sm:p-4 bg-[#ECE8DF]/90 flex items-center justify-between font-mono max-w-md">
+          {/* Stats Bar with sketchy subtle borders & Promotional Spotlight */}
+          <div
+            id="hero-stats-promotional-bar"
+            className="relative border border-[#171514]/60 p-3 sm:p-4 bg-[#ECE8DF]/90 font-mono max-w-md w-full min-h-[90px] sm:min-h-[105px] flex flex-col justify-center transition-all duration-200"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+            onFocus={() => setIsPaused(true)}
+            onBlur={() => setIsPaused(false)}
+            tabIndex={0}
+            role="region"
+            aria-label="Portfolio metrics and promotional spotlight"
+          >
             {/* Subtle double sketch line */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
-              <rect x="0" y="0" width="100" height="100" fill="none" stroke="#171514" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" vectorEffect="non-scaling-stroke" />
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none overflow-visible"
+              preserveAspectRatio="none"
+              viewBox="0 0 100 100"
+            >
+              <rect
+                x="0"
+                y="0"
+                width="100"
+                height="100"
+                fill="none"
+                stroke="#171514"
+                strokeWidth="1"
+                strokeDasharray="3 3"
+                opacity="0.4"
+                vectorEffect="non-scaling-stroke"
+              />
             </svg>
-            <div className="text-center">
-              <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none">
-                {liveProjectsCount}
+
+            {/* Micro-header strip (visible only when promotional spotlight is enabled) */}
+            {isSpotlightEnabled && (
+              <div className="flex items-center justify-between text-[9px] text-[#5A5650] mb-1 font-mono select-none">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#DF491E] flex-shrink-0 animate-pulse" />
+                  <span className="tracking-widest uppercase font-bold text-[#171514] truncate transition-opacity duration-200">
+                    {displayContent.view === 'stats' ? '// METRICS' : spotlightBadge}
+                  </span>
+                  {displayContent.view === 'spotlight' && enabledMessages.length > 1 && (
+                    <span className="text-[8px] text-[#5A5650] tracking-wider">
+                      [{String(currentMessageIndex + 1).padStart(2, '0')}/{String(enabledMessages.length).padStart(2, '0')}]
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {spotlightMode === 'alternate' && (
+                    <>
+                      <button
+                        type="button"
+                        id="hero-toggle-stats"
+                        onClick={() => {
+                          setActiveView('stats');
+                          resetAutoRotateTimer();
+                        }}
+                        className={`px-1 py-0.2 uppercase text-[8px] font-bold border transition-colors cursor-pointer ${
+                          activeView === 'stats'
+                            ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
+                            : 'bg-transparent text-[#5A5650] border-transparent hover:text-[#171514]'
+                        }`}
+                        title="Show Statistics"
+                        aria-label="Show Statistics"
+                      >
+                        STATS
+                      </button>
+                      <span className="text-[#BCB8B1]">/</span>
+                      <button
+                        type="button"
+                        id="hero-toggle-spotlight"
+                        onClick={() => {
+                          setActiveView('spotlight');
+                          resetAutoRotateTimer();
+                        }}
+                        className={`px-1 py-0.2 uppercase text-[8px] font-bold border transition-colors cursor-pointer ${
+                          activeView === 'spotlight'
+                            ? 'bg-[#DF491E] text-[#171514] border-[#DF491E]'
+                            : 'bg-transparent text-[#5A5650] border-transparent hover:text-[#171514]'
+                        }`}
+                        title="Show Promotional Spotlight"
+                        aria-label="Show Promotional Spotlight"
+                      >
+                        SPOTLIGHT
+                      </button>
+                    </>
+                  )}
+                  {activeView === 'spotlight' && enabledMessages.length > 1 && (
+                    <div className="flex items-center gap-0.5 ml-1">
+                      <button
+                        type="button"
+                        id="hero-spotlight-prev"
+                        onClick={() => {
+                          setCurrentMessageIndex(
+                            (prev) => (prev - 1 + enabledMessages.length) % enabledMessages.length
+                          );
+                          resetAutoRotateTimer();
+                        }}
+                        className="px-1 py-0.2 text-[8px] border border-[#171514]/40 hover:bg-[#171514] hover:text-[#ECE8DF] font-bold cursor-pointer"
+                        title="Previous message"
+                        aria-label="Previous promotional message"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        id="hero-spotlight-next"
+                        onClick={() => {
+                          setCurrentMessageIndex((prev) => (prev + 1) % enabledMessages.length);
+                          resetAutoRotateTimer();
+                        }}
+                        className="px-1 py-0.2 text-[8px] border border-[#171514]/40 hover:bg-[#171514] hover:text-[#ECE8DF] font-bold cursor-pointer"
+                        title="Next message"
+                        aria-label="Next promotional message"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  )}
+                  {isEditingMode && onOpenHeroDrawer && (
+                    <button
+                      type="button"
+                      onClick={onOpenHeroDrawer}
+                      className="ml-1 px-1 py-0.2 text-[8px] font-bold bg-[#DF491E]/20 text-[#171514] border border-[#DF491E] hover:bg-[#DF491E] cursor-pointer"
+                      title="Configure Hero Stats & Spotlight in Drawer"
+                    >
+                      ⚙ EDIT
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase mt-0.5">
-                PROJECTS
-              </div>
-            </div>
-            <div className="text-[#BCB8B1] font-mono text-lg font-light">—</div>
-            <div className="text-center">
-              <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none">
-                {liveWriteupsCount}
-              </div>
-              <div className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase mt-0.5">
-                WRITE-UPS
-              </div>
-            </div>
-            <div className="text-[#BCB8B1] font-mono text-lg font-light">—</div>
-            <div className="text-center">
-              <div className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none">
-                <InlineEditable
-                  value={currentHero.stat_curiosity}
-                  onChange={(val) => onHeroChange?.('stat_curiosity', val)}
-                  isEditingMode={isEditingMode}
-                  label="Curiosity Symbol"
-                  className="font-display text-2xl sm:text-3xl font-extrabold text-[#171514] leading-none"
-                />
-              </div>
-              <div className="text-[9px] sm:text-[10px] tracking-widest text-[#5A5650] uppercase mt-0.5">
-                CURIOSITY
+            )}
+
+            {/* Stable Content Slot with CSS Grid-Stacking for Zero Layout Shift */}
+            <div className="grid grid-cols-1 grid-rows-1 w-full min-h-[44px] sm:min-h-[53px] items-center relative overflow-hidden">
+              {outgoingContent && (
+                <div
+                  key={`outgoing-${outgoingContent.key}`}
+                  className="col-start-1 row-start-1 w-full pointer-events-none animate-promo-exit select-none"
+                  aria-hidden="true"
+                >
+                  {renderPromoSlot(outgoingContent, false)}
+                </div>
+              )}
+              <div
+                key={`current-${displayContent.key}`}
+                className={`col-start-1 row-start-1 w-full ${
+                  outgoingContent ? 'animate-promo-enter' : ''
+                }`}
+              >
+                {renderPromoSlot(displayContent, true)}
               </div>
             </div>
           </div>

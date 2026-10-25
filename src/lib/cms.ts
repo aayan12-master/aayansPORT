@@ -1,5 +1,6 @@
 import { getRequiredSupabaseServerClient, isSupabaseConfigured, checkIsSupabaseConfigured } from './supabase/server';
 import { getRequiredSupabaseAdminClient, isSupabaseAdminConfigured, checkIsSupabaseAdminConfigured } from './supabase/admin';
+import type { SocialAccount } from './socials';
 
 export interface SiteSettings {
   id: string;
@@ -14,8 +15,24 @@ export interface SiteSettings {
   github_url: string;
   linkedin_url: string;
   twitter_url: string;
+  social_links?: SocialAccount[];
+  og_title?: string;
+  og_description?: string;
+  og_image?: string;
+  canonical_url?: string;
   pgp_key?: string;
   updated_at?: string;
+}
+
+export interface HeroSpotlightMessage {
+  id: string;
+  title: string;
+  subtitle: string;
+  badge?: string;
+  cta_text?: string;
+  cta_url?: string;
+  enabled: boolean;
+  order?: number;
 }
 
 export interface HeroContent {
@@ -39,6 +56,23 @@ export interface HeroContent {
   wordmark_prefix?: string;
   wordmark_suffix?: string;
   role_title?: string;
+  // Hero Stats & Promotional Spotlight
+  stat_1_label?: string;
+  stat_2_label?: string;
+  stat_3_label?: string;
+  stat_1_override?: string;
+  stat_2_override?: string;
+  stat_1_enabled?: boolean;
+  stat_2_enabled?: boolean;
+  stat_3_enabled?: boolean;
+  spotlight_enabled?: boolean;
+  spotlight_mode?: 'alternate' | 'stats_only' | 'spotlight_only';
+  spotlight_auto_rotate?: boolean;
+  spotlight_title?: string;
+  spotlight_subtitle?: string;
+  spotlight_cta_text?: string;
+  spotlight_cta_url?: string;
+  spotlight_messages?: HeroSpotlightMessage[];
   updated_at?: string;
 }
 
@@ -194,14 +228,58 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     github_url: 'https://github.com/aayan-sec',
     linkedin_url: 'https://linkedin.com/in/aayan-sec',
     twitter_url: 'https://twitter.com/aayan_sec',
+    social_links: [
+      {
+        id: 'github',
+        platform: 'github',
+        label: 'GitHub',
+        url: 'https://github.com/aayan-sec',
+        icon: 'github',
+        display_order: 1,
+        enabled: true,
+      },
+      {
+        id: 'linkedin',
+        platform: 'linkedin',
+        label: 'LinkedIn',
+        url: 'https://linkedin.com/in/aayan-sec',
+        icon: 'linkedin',
+        display_order: 2,
+        enabled: true,
+      },
+      {
+        id: 'twitter',
+        platform: 'twitter',
+        label: 'Twitter (X)',
+        url: 'https://twitter.com/aayan_sec',
+        icon: 'twitter',
+        display_order: 3,
+        enabled: true,
+      },
+    ],
+    og_title: 'AAYAN.Sec — Security Researcher & Penetration Tester',
+    og_description: 'Offensive security researcher and penetration tester dossier.',
+    og_image: '',
+    canonical_url: '',
   };
 }
 
 export async function updateSiteSettings(settings: Partial<SiteSettings>): Promise<boolean> {
   const supabase = getRequiredSupabaseAdminClient();
+  const payload: Record<string, any> = { ...settings };
+
+  if (Array.isArray(payload.social_links)) {
+    const gh = payload.social_links.find((s: any) => s.platform === 'github' && s.enabled);
+    if (gh && gh.url) payload.github_url = gh.url;
+    const li = payload.social_links.find((s: any) => s.platform === 'linkedin' && s.enabled);
+    if (li && li.url) payload.linkedin_url = li.url;
+    const tw = payload.social_links.find((s: any) => (s.platform === 'twitter' || s.platform === 'x') && s.enabled);
+    if (tw && tw.url) payload.twitter_url = tw.url;
+  }
+
   const { error } = await supabase
     .from('site_settings')
-    .upsert({ id: 'current', ...settings, updated_at: new Date().toISOString() });
+    .upsert({ id: 'current', ...payload, updated_at: new Date().toISOString() });
 
   if (error) {
     console.error('[CMS] Failed to update site_settings in Supabase:', error.message);
@@ -249,6 +327,20 @@ export async function getHeroContent(): Promise<HeroContent> {
     wordmark_prefix: 'AAYAN',
     wordmark_suffix: '.Sec',
     role_title: 'SECURITY RESEARCHER / PENTESTER',
+    stat_1_label: 'PROJECTS',
+    stat_2_label: 'WRITE-UPS',
+    stat_3_label: 'CURIOSITY',
+    stat_1_enabled: true,
+    stat_2_enabled: true,
+    stat_3_enabled: true,
+    spotlight_enabled: false,
+    spotlight_mode: 'alternate',
+    spotlight_auto_rotate: true,
+    spotlight_title: 'OPEN FOR COLLABORATION',
+    spotlight_subtitle: 'Web Security • Authorized Penetration Testing',
+    spotlight_cta_text: 'INITIATE CONTACT →',
+    spotlight_cta_url: '#collaborate',
+    spotlight_messages: [],
   };
 }
 

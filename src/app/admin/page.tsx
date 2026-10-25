@@ -1167,11 +1167,10 @@ export default function AdminPage() {
       {/* Toast Notification */}
       {feedback && (
         <div
-          className={`fixed top-4 right-4 z-50 border p-3 font-mono text-xs shadow-2xl flex items-center gap-3 transition-all ${
-            feedback.type === 'success'
+          className={`fixed top-4 right-4 z-50 border p-3 font-mono text-xs shadow-2xl flex items-center gap-3 transition-all ${feedback.type === 'success'
               ? 'bg-[#F2EFE7] border-[#171514] text-[#171514]'
               : 'bg-[#DF491E] border-[#171514] text-[#ECE8DF]'
-          }`}
+            }`}
         >
           <span className="font-bold">{feedback.type === 'success' ? '✓ OK:' : '✕ ERR:'}</span>
           <span>{feedback.message}</span>
@@ -1212,9 +1211,8 @@ export default function AdminPage() {
       )}
 
       {/* Sidebar Navigation */}
-      <aside className={`${
-        isSidebarCollapsed && activeTab === 'content' ? 'hidden' : 'w-full lg:w-64'
-      } bg-[#F2EFE7] border-b-2 lg:border-b-0 lg:border-r-2 border-[#171514] p-5 flex flex-col justify-between shrink-0 transition-all`}>
+      <aside className={`${isSidebarCollapsed && activeTab === 'content' ? 'hidden' : 'w-full lg:w-64'
+        } bg-[#F2EFE7] border-b-2 lg:border-b-0 lg:border-r-2 border-[#171514] p-5 flex flex-col justify-between shrink-0 transition-all`}>
         <div className="space-y-6">
           {/* Brand block */}
           <div className="border-b border-[#171514]/20 pb-4">
@@ -1252,22 +1250,20 @@ export default function AdminPage() {
                 key={tab.id}
                 id={`admin-tab-${tab.id}`}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`w-full text-left px-3 py-2.5 font-bold tracking-wider transition-all flex items-center justify-between border cursor-pointer ${
-                  activeTab === tab.id
+                className={`w-full text-left px-3 py-2.5 font-bold tracking-wider transition-all flex items-center justify-between border cursor-pointer ${activeTab === tab.id
                     ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
                     : 'text-[#171514] border-transparent hover:border-[#171514]/40 hover:bg-[#ECE8DF]'
-                }`}
+                  }`}
               >
                 <span>{tab.label}</span>
                 {tab.badge !== null && (
                   <span
-                    className={`px-1.5 py-0.5 text-[10px] ${
-                      tab.isUnsaved
+                    className={`px-1.5 py-0.5 text-[10px] ${tab.isUnsaved
                         ? 'bg-[#DF491E] text-[#171514] font-bold'
                         : activeTab === tab.id
-                        ? 'bg-[#DF491E] text-[#171514]'
-                        : 'bg-[#171514]/10 text-[#171514]'
-                    }`}
+                          ? 'bg-[#DF491E] text-[#171514]'
+                          : 'bg-[#171514]/10 text-[#171514]'
+                      }`}
                   >
                     {tab.badge}
                   </span>
@@ -1286,9 +1282,8 @@ export default function AdminPage() {
 
           <div className="flex items-center gap-2">
             <span
-              className={`w-2 h-2 rounded-full ${
-                stats?.backend === 'supabase' ? 'bg-[#10B981]' : 'bg-[#DF491E]'
-              }`}
+              className={`w-2 h-2 rounded-full ${stats?.backend === 'supabase' ? 'bg-[#10B981]' : 'bg-[#DF491E]'
+                }`}
             />
             <span className="text-[10px] text-[#5A5650] uppercase">
               {stats?.backend === 'supabase' ? 'Supabase Connected' : 'Supabase Disconnected'}
@@ -1667,13 +1662,12 @@ export default function AdminPage() {
                         <tr key={r.id} className="border-b border-[#171514]/20 hover:bg-[#ECE8DF]/70">
                           <td className="p-3">
                             <span
-                              className={`px-2 py-0.5 text-[10px] font-bold uppercase ${
-                                r.severity === 'Critical'
+                              className={`px-2 py-0.5 text-[10px] font-bold uppercase ${r.severity === 'Critical'
                                   ? 'bg-[#DF491E] text-[#171514]'
                                   : r.severity === 'High'
-                                  ? 'bg-[#171514] text-[#ECE8DF]'
-                                  : 'border border-[#171514] text-[#171514]'
-                              }`}
+                                    ? 'bg-[#171514] text-[#ECE8DF]'
+                                    : 'border border-[#171514] text-[#171514]'
+                                }`}
                             >
                               {r.severity}
                             </span>
@@ -1715,11 +1709,10 @@ export default function AdminPage() {
                           <td className="p-3 font-semibold">{r.cve_id || '—'}</td>
                           <td className="p-3">
                             <span
-                              className={`px-2 py-0.5 text-[10px] font-bold ${
-                                r.status === 'published'
+                              className={`px-2 py-0.5 text-[10px] font-bold ${r.status === 'published'
                                   ? 'bg-green-700/20 text-green-900 border border-green-700'
                                   : 'bg-yellow-500/20 text-yellow-900 border border-yellow-700'
-                              }`}
+                                }`}
                             >
                               {r.status}
                             </span>
@@ -2492,11 +2485,10 @@ export default function AdminPage() {
                               <button
                                 onClick={() => handleToggleToolStatus(p)}
                                 title="Click to toggle published / draft visibility"
-                                className={`px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
-                                  p.status === 'published'
+                                className={`px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${p.status === 'published'
                                     ? 'bg-green-700/20 text-green-900 border border-green-700 hover:bg-green-700/30'
                                     : 'bg-yellow-500/20 text-yellow-900 border border-yellow-700 hover:bg-yellow-500/30'
-                                }`}
+                                  }`}
                               >
                                 {p.status.toUpperCase()}
                               </button>
@@ -2607,9 +2599,8 @@ export default function AdminPage() {
                         <div>
                           <span className="text-[#5A5650] block text-[10px]">README STATUS:</span>
                           <span
-                            className={`font-bold ${
-                              importedTool.readme_status === 'available' ? 'text-green-800' : 'text-amber-800'
-                            }`}
+                            className={`font-bold ${importedTool.readme_status === 'available' ? 'text-green-800' : 'text-amber-800'
+                              }`}
                           >
                             {importedTool.readme_status === 'available' ? '✓ DETECTED' : 'MISSING'}
                           </span>
@@ -3002,17 +2993,15 @@ export default function AdminPage() {
                         submissions.map((s) => (
                           <tr
                             key={s.id}
-                            className={`border-b border-[#171514]/20 hover:bg-[#ECE8DF]/70 ${
-                              s.status === 'unread' ? 'font-bold bg-[#DF491E]/5' : ''
-                            }`}
+                            className={`border-b border-[#171514]/20 hover:bg-[#ECE8DF]/70 ${s.status === 'unread' ? 'font-bold bg-[#DF491E]/5' : ''
+                              }`}
                           >
                             <td className="p-3">
                               <span
-                                className={`px-2 py-0.5 text-[10px] font-bold uppercase ${
-                                  s.status === 'unread'
+                                className={`px-2 py-0.5 text-[10px] font-bold uppercase ${s.status === 'unread'
                                     ? 'bg-[#DF491E] text-[#171514]'
                                     : 'bg-[#171514]/10 text-[#5A5650]'
-                                }`}
+                                  }`}
                               >
                                 {s.status}
                               </span>

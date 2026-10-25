@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import {
   getSiteSettings,
   getHeroContent,
@@ -11,6 +12,30 @@ import PortfolioClient from '@/components/PortfolioClient';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  const title = settings?.site_title || 'AAYAN.SEC — Security Researcher & Pentester Portfolio';
+  const description =
+    settings?.site_description ||
+    'Security research dossier of Aayan — Offensive Security Researcher & Penetration Tester. Protocol analysis, cloud architecture vulnerabilities, and exploit tooling.';
+  const ogTitle = settings?.og_title || title;
+  const ogDescription = settings?.og_description || description;
+  const ogImage = settings?.og_image;
+
+  return {
+    title,
+    description,
+    alternates: settings?.canonical_url ? { canonical: settings.canonical_url } : undefined,
+    openGraph: {
+      title: ogTitle,
+      description: ogDescription,
+      images: ogImage ? [{ url: ogImage }] : undefined,
+      type: 'website',
+    },
+  };
+}
+
 
 export default async function HomePage() {
   const [settingsRes, heroRes, aboutRes, skillsRes, projectsRes, researchRes] =

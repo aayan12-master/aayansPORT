@@ -8,6 +8,7 @@ import ResearchSection from '@/components/ResearchSection';
 import ToolsSection from '@/components/ToolsSection';
 import SkillsSection from '@/components/SkillsSection';
 import CollaborateSection from '@/components/CollaborateSection';
+import FullscreenTip from '@/components/FullscreenTip';
 import InlineEditable from '@/components/admin/InlineEditable';
 import type {
   SiteSettings,
@@ -37,7 +38,8 @@ export interface PortfolioClientProps {
   aboutOverride?: AboutContent | null;
   domainsOverride?: ResearchDomain[] | null;
   onSettingsChange?: (field: keyof SiteSettings, value: any) => void;
-  onHeroChange?: (field: keyof HeroContent, value: string) => void;
+  onHeroChange?: (field: keyof HeroContent, value: any) => void;
+  onOpenHeroDrawer?: () => void;
   onAboutChange?: (field: keyof AboutContent, value: string) => void;
   onDomainChange?: (index: number, field: keyof ResearchDomain, value: string) => void;
   onAddDomain?: () => void;
@@ -63,6 +65,7 @@ export default function PortfolioClient({
   domainsOverride,
   onSettingsChange,
   onHeroChange,
+  onOpenHeroDrawer,
   onAboutChange,
   onDomainChange,
   onAddDomain,
@@ -103,6 +106,15 @@ export default function PortfolioClient({
 
   useEffect(() => {
     const handleScroll = () => {
+      // Bottom of page detection for collaborate
+      if (
+        typeof window !== 'undefined' &&
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 80
+      ) {
+        setActiveSection('collaborate');
+        return;
+      }
+
       const sections = ['overview', 'background', 'research', 'tools', 'skills', 'collaborate'];
       const scrollPosition = window.scrollY + 250;
 
@@ -136,14 +148,14 @@ export default function PortfolioClient({
   const currentFooterText = currentSettings?.footer_text || footerInfo.text;
   const currentFooterSubtext = currentSettings?.footer_subtext || footerInfo.subtext;
 
+
   return (
     <div className="min-h-screen bg-[#ECE8DF] text-[#171514] flex flex-col lg:flex-row relative">
       {/* Main Content Stream (Sections 01 - 06) */}
-      <main className={`flex-1 w-full min-h-screen relative transition-all duration-200 ${
-        showNavigation
+      <main className={`flex-1 w-full min-h-screen relative overflow-x-clip transition-all duration-200 ${showNavigation
           ? 'lg:max-w-[calc(100%-285px)] xl:max-w-[calc(100%-300px)]'
           : 'max-w-none'
-      }`}>
+        }`}>
         {/* 01 — OVERVIEW (Hero Masterpiece) */}
         <div id="overview" className="w-full">
           <HeroMasterpiece
@@ -155,6 +167,7 @@ export default function PortfolioClient({
             isEditingMode={isEditingMode}
             heroOverride={heroOverride}
             onHeroChange={onHeroChange}
+            onOpenHeroDrawer={onOpenHeroDrawer}
           />
         </div>
 
@@ -200,25 +213,25 @@ export default function PortfolioClient({
         </div>
 
         {/* Footer info strip */}
-        <footer className="w-full bg-[#171514] text-[#ECE8DF] font-mono text-xs p-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t-2 border-[#171514]">
-          <div className="flex items-center gap-3">
+        <footer className="w-full bg-[#171514] text-[#ECE8DF] font-mono text-xs px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t-2 border-[#171514]">
+          <div className="flex flex-col gap-0.5 min-w-0">
             <InlineEditable
               value={currentFooterBrand}
               isEditingMode={isEditingMode}
               label="Footer Brand"
               onChange={(v) => onSettingsChange?.('footer_brand', v)}
-              className="font-bold text-[#DF491E]"
+              className="font-bold text-[#DF491E] tracking-wider text-xs"
             />
-            <span className="text-[#BCB8B1]">|</span>
             <InlineEditable
               value={currentFooterText}
               isEditingMode={isEditingMode}
               label="Footer Text"
               onChange={(v) => onSettingsChange?.('footer_text', v)}
-              className="text-[#BCB8B1]"
+              className="text-[#BCB8B1] text-[11px] tracking-tight"
             />
           </div>
-          <div className="flex items-center text-[#BCB8B1]">
+
+          <div className="flex items-center text-[#BCB8B1] text-[11px] tracking-widest sm:text-right flex-shrink-0">
             <InlineEditable
               value={currentFooterSubtext}
               isEditingMode={isEditingMode}
@@ -250,6 +263,9 @@ export default function PortfolioClient({
           />
         </div>
       )}
+
+      {/* Subtle Desktop Full-Screen Experience Notification */}
+      <FullscreenTip />
     </div>
   );
 }
