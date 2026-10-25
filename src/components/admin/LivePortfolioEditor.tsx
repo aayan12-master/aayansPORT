@@ -68,7 +68,29 @@ export default function LivePortfolioEditor({
     descriptor_1: '[ OFFENSIVE SECURITY ]',
     descriptor_2: '[ WEB / MOBILE / CLOUD ]',
     descriptor_3: '[ RESEARCH • EXPLOIT • BUILD ]',
+    wordmark_prefix: 'AAYAN',
+    wordmark_suffix: '.Sec',
+    role_title: 'SECURITY RESEARCHER / PENTESTER',
   });
+
+  // Local editor preference for portfolio navigation rail visibility (does not affect public site)
+  const [showCanvasNav, setShowCanvasNav] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('aayan_admin_show_canvas_nav');
+      if (stored !== null) return stored === 'true';
+    }
+    return true;
+  });
+
+  const handleToggleCanvasNav = () => {
+    setShowCanvasNav((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('aayan_admin_show_canvas_nav', String(next));
+      }
+      return next;
+    });
+  };
 
   const [settings, setSettings] = useState<SiteSettings>(() => initialSettings || {
     id: 'settings-default',
@@ -437,6 +459,22 @@ export default function LivePortfolioEditor({
               </button>
             )}
 
+            {/* Portfolio Navigation Rail Visibility Toggle */}
+            <button
+              type="button"
+              onClick={handleToggleCanvasNav}
+              className={`px-2.5 py-1 font-mono text-xs font-bold border border-[#171514] transition-colors flex items-center gap-1.5 cursor-pointer ${
+                showCanvasNav
+                  ? 'bg-[#171514] text-[#ECE8DF]'
+                  : 'bg-[#ECE8DF] text-[#171514] hover:bg-[#D7D3CB]'
+              }`}
+              title={showCanvasNav ? 'Hide Portfolio Navigation Rail to expand canvas space' : 'Show Portfolio Navigation Rail inside editor canvas'}
+            >
+              <span>🧭</span>
+              <span className="hidden sm:inline">{showCanvasNav ? 'NAVIGATION: SHOW' : 'NAVIGATION: HIDE'}</span>
+              <span className="sm:hidden">{showCanvasNav ? 'NAV: ON' : 'NAV: OFF'}</span>
+            </button>
+
             {/* Mode Toggle Button */}
             <div className="flex items-center border border-[#171514] bg-[#ECE8DF] p-0.5 font-mono text-xs">
               <button
@@ -693,6 +731,65 @@ export default function LivePortfolioEditor({
               <strong>Unified Synchronization:</strong> Edits made here immediately propagate across the Live Canvas Navigation Rail, Connect Channels, and Footer in real time.
             </div>
 
+            {/* Hero Identity & Branding Section in Drawer */}
+            <div className="border border-[#171514] p-4 bg-[#ECE8DF] space-y-3">
+              <div className="font-bold text-[#171514] uppercase tracking-wider text-[11px]">
+                // HERO BRANDING &amp; WORDMARK
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] text-[#5A5650] mb-1">Brand Wordmark</label>
+                  <input
+                    type="text"
+                    value={hero.wordmark_prefix || ''}
+                    onChange={(e) => handleHeroChange('wordmark_prefix', e.target.value)}
+                    className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-[#171514] focus:outline-none focus:border-[#DF491E]"
+                    placeholder="AAYAN"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[#5A5650] mb-1">Brand Suffix</label>
+                  <input
+                    type="text"
+                    value={hero.wordmark_suffix || ''}
+                    onChange={(e) => handleHeroChange('wordmark_suffix', e.target.value)}
+                    className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-[#171514] focus:outline-none focus:border-[#DF491E]"
+                    placeholder=".Sec"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] text-[#5A5650] mb-1">Role Subtitle</label>
+                <input
+                  type="text"
+                  value={hero.role_title || ''}
+                  onChange={(e) => handleHeroChange('role_title', e.target.value)}
+                  className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-[#171514] focus:outline-none focus:border-[#DF491E]"
+                  placeholder="SECURITY RESEARCHER / PENTESTER"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-[#5A5650] mb-1">Brand Headline</label>
+                <input
+                  type="text"
+                  value={hero.brand_name || ''}
+                  onChange={(e) => handleHeroChange('brand_name', e.target.value)}
+                  className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-[#171514] focus:outline-none focus:border-[#DF491E]"
+                  placeholder="AAYAN."
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-[#5A5650] mb-1">Professional Subtitle</label>
+                <input
+                  type="text"
+                  value={hero.headline || ''}
+                  onChange={(e) => handleHeroChange('headline', e.target.value)}
+                  className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-[#171514] focus:outline-none focus:border-[#DF491E]"
+                  placeholder="SECURITY RESEARCHER &amp; PENTESTER"
+                />
+              </div>
+            </div>
+
             {/* Hero Descriptors Section in Drawer */}
             <div className="border border-[#171514] p-4 bg-[#ECE8DF] space-y-3">
               <div className="font-bold text-[#171514] uppercase tracking-wider text-[11px]">
@@ -902,6 +999,7 @@ export default function LivePortfolioEditor({
               onAddDomain={handleAddDomain}
               onDeleteDomain={handleDeleteDomain}
               onMoveDomain={handleMoveDomain}
+              showNavigation={showCanvasNav}
             />
           </div>
         </div>

@@ -36,6 +36,9 @@ export interface HeroContent {
   descriptor_1?: string;
   descriptor_2?: string;
   descriptor_3?: string;
+  wordmark_prefix?: string;
+  wordmark_suffix?: string;
+  role_title?: string;
   updated_at?: string;
 }
 
@@ -243,6 +246,9 @@ export async function getHeroContent(): Promise<HeroContent> {
     descriptor_1: '[ OFFENSIVE SECURITY ]',
     descriptor_2: '[ WEB / MOBILE / CLOUD ]',
     descriptor_3: '[ RESEARCH • EXPLOIT • BUILD ]',
+    wordmark_prefix: 'AAYAN',
+    wordmark_suffix: '.Sec',
+    role_title: 'SECURITY RESEARCHER / PENTESTER',
   };
 }
 

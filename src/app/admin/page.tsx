@@ -130,6 +130,9 @@ interface HeroData {
   descriptor_1?: string;
   descriptor_2?: string;
   descriptor_3?: string;
+  wordmark_prefix?: string;
+  wordmark_suffix?: string;
+  role_title?: string;
 }
 
 interface AboutData {

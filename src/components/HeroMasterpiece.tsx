@@ -50,6 +50,9 @@ export default function HeroMasterpiece({
     descriptor_1: initialHero?.descriptor_1 || '[ OFFENSIVE SECURITY ]',
     descriptor_2: initialHero?.descriptor_2 || '[ WEB / MOBILE / CLOUD ]',
     descriptor_3: initialHero?.descriptor_3 || '[ RESEARCH • EXPLOIT • BUILD ]',
+    wordmark_prefix: initialHero?.wordmark_prefix || 'AAYAN',
+    wordmark_suffix: initialHero?.wordmark_suffix || '.Sec',
+    role_title: initialHero?.role_title || 'SECURITY RESEARCHER / PENTESTER',
   }));
 
   const currentHero = heroOverride || hero;
@@ -79,6 +82,9 @@ export default function HeroMasterpiece({
         descriptor_1: initialHero.descriptor_1 || '[ OFFENSIVE SECURITY ]',
         descriptor_2: initialHero.descriptor_2 || '[ WEB / MOBILE / CLOUD ]',
         descriptor_3: initialHero.descriptor_3 || '[ RESEARCH • EXPLOIT • BUILD ]',
+        wordmark_prefix: initialHero.wordmark_prefix || 'AAYAN',
+        wordmark_suffix: initialHero.wordmark_suffix || '.Sec',
+        role_title: initialHero.role_title || 'SECURITY RESEARCHER / PENTESTER',
       });
       return;
     }
@@ -102,6 +108,9 @@ export default function HeroMasterpiece({
               descriptor_1: data.hero.descriptor_1 || '[ OFFENSIVE SECURITY ]',
               descriptor_2: data.hero.descriptor_2 || '[ WEB / MOBILE / CLOUD ]',
               descriptor_3: data.hero.descriptor_3 || '[ RESEARCH • EXPLOIT • BUILD ]',
+              wordmark_prefix: data.hero.wordmark_prefix || 'AAYAN',
+              wordmark_suffix: data.hero.wordmark_suffix || '.Sec',
+              role_title: data.hero.role_title || 'SECURITY RESEARCHER / PENTESTER',
             });
           }
           if (typeof data.projectsCount === 'number') {
@@ -131,14 +140,39 @@ export default function HeroMasterpiece({
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
           {/* Identity Box matching reference with signature sketch borders */}
           <HandDrawnFrame bgColor="#ECE8DF" padding="8px 18px" className="flex-shrink-0">
-            <div className="font-sans text-2xl sm:text-3xl font-black tracking-wider leading-none">
-              AAYAN<span className="text-[#DF491E] font-bold">.Sec</span>
+            <div className="font-sans text-2xl sm:text-3xl font-black tracking-wider leading-none flex items-baseline flex-wrap">
+              <InlineEditable
+                value={currentHero.wordmark_prefix || 'AAYAN'}
+                onChange={(val) => onHeroChange?.('wordmark_prefix', val)}
+                isEditingMode={isEditingMode}
+                label="Brand Wordmark"
+                className="font-sans font-black tracking-wider leading-none"
+              />
+              <InlineEditable
+                value={currentHero.wordmark_suffix || '.Sec'}
+                onChange={(val) => onHeroChange?.('wordmark_suffix', val)}
+                isEditingMode={isEditingMode}
+                label="Brand Suffix"
+                className="text-[#DF491E] font-bold font-sans tracking-wider leading-none"
+              />
             </div>
-            <div className="font-mono text-[10px] sm:text-[11px] font-bold tracking-widest text-[#171514] uppercase mt-1">
-              SECURITY RESEARCHER
-            </div>
-            <div className="font-mono text-[10px] sm:text-[11px] font-bold tracking-widest text-[#171514] uppercase">
-              / PENTESTER
+            <div className="font-mono text-[10px] sm:text-[11px] font-bold tracking-widest text-[#171514] uppercase mt-1 leading-tight">
+              <InlineEditable
+                value={currentHero.role_title || 'SECURITY RESEARCHER / PENTESTER'}
+                onChange={(val) => onHeroChange?.('role_title', val)}
+                isEditingMode={isEditingMode}
+                label="Role Title"
+                className="font-mono text-[10px] sm:text-[11px] font-bold tracking-widest text-[#171514] uppercase block leading-tight"
+              >
+                {currentHero.role_title && currentHero.role_title.includes('/') ? (
+                  <>
+                    <div>{currentHero.role_title.split('/')[0].trim()}</div>
+                    <div>/ {currentHero.role_title.split('/').slice(1).join('/').trim()}</div>
+                  </>
+                ) : (
+                  currentHero.role_title || 'SECURITY RESEARCHER / PENTESTER'
+                )}
+              </InlineEditable>
             </div>
           </HandDrawnFrame>
 

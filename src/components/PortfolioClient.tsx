@@ -43,6 +43,7 @@ export interface PortfolioClientProps {
   onAddDomain?: () => void;
   onDeleteDomain?: (index: number) => void;
   onMoveDomain?: (index: number, direction: 'up' | 'down') => void;
+  showNavigation?: boolean;
 }
 
 export default function PortfolioClient({
@@ -67,6 +68,7 @@ export default function PortfolioClient({
   onAddDomain,
   onDeleteDomain,
   onMoveDomain,
+  showNavigation = true,
 }: PortfolioClientProps) {
   const [activeSection, setActiveSection] = useState('overview');
   const [footerInfo, setFooterInfo] = useState(() => ({
@@ -137,7 +139,11 @@ export default function PortfolioClient({
   return (
     <div className="min-h-screen bg-[#ECE8DF] text-[#171514] flex flex-col lg:flex-row relative">
       {/* Main Content Stream (Sections 01 - 06) */}
-      <main className="flex-1 w-full lg:max-w-[calc(100%-285px)] xl:max-w-[calc(100%-300px)] min-h-screen relative">
+      <main className={`flex-1 w-full min-h-screen relative transition-all duration-200 ${
+        showNavigation
+          ? 'lg:max-w-[calc(100%-285px)] xl:max-w-[calc(100%-300px)]'
+          : 'max-w-none'
+      }`}>
         {/* 01 — OVERVIEW (Hero Masterpiece) */}
         <div id="overview" className="w-full">
           <HeroMasterpiece
@@ -224,22 +230,26 @@ export default function PortfolioClient({
       </main>
 
       {/* Right-Side Numbered Navigation Rail (Fixed / Sticky on Desktop) */}
-      <div className="hidden lg:block lg:sticky lg:top-0 lg:h-screen lg:w-[285px] xl:w-[300px] flex-shrink-0 z-30">
-        <NavigationRail
-          activeSection={activeSection}
-          onSelectSection={scrollToSection}
-          settings={currentSettings}
-        />
-      </div>
+      {showNavigation && (
+        <div className="hidden lg:block lg:sticky lg:top-0 lg:h-screen lg:w-[285px] xl:w-[300px] flex-shrink-0 z-30">
+          <NavigationRail
+            activeSection={activeSection}
+            onSelectSection={scrollToSection}
+            settings={currentSettings}
+          />
+        </div>
+      )}
 
       {/* Mobile Drawer Navigation Rail */}
-      <div className="lg:hidden">
-        <NavigationRail
-          activeSection={activeSection}
-          onSelectSection={scrollToSection}
-          settings={currentSettings}
-        />
-      </div>
+      {showNavigation && (
+        <div className="lg:hidden">
+          <NavigationRail
+            activeSection={activeSection}
+            onSelectSection={scrollToSection}
+            settings={currentSettings}
+          />
+        </div>
+      )}
     </div>
   );
 }

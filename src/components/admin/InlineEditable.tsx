@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 export interface InlineEditableProps {
   value: string;
-  onChange: (newValue: string) => void;
+  onChange: (newValue: string) => void | Promise<void>;
   isEditingMode?: boolean;
   multiline?: boolean;
   className?: string;
@@ -29,37 +29,93 @@ export default function InlineEditable({
 }: InlineEditableProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentValue, setCurrentValue] = useState(value || '');
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'unsaved' | 'saving' | 'saved' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  
+  const initialValueRef = useRef(value || '');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const savedTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setCurrentValue(value || '');
+    initialValueRef.current = value || '';
   }, [value]);
 
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      if ('select' in inputRef.current) {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
+
+  const adjustTextareaHeight = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.max(76, textareaRef.current.scrollHeight)}px`;
+    }
+  };
+
+  useEffect(() => {
+    if (isEditing) {
+      if (multiline && textareaRef.current) {
+        textareaRef.current.focus();
+        adjustTextareaHeight();
+        textareaRef.current.select();
+      } else if (!multiline && inputRef.current) {
+        inputRef.current.focus();
         inputRef.current.select();
       }
     }
-  }, [isEditing]);
+  }, [isEditing, multiline]);
 
   // Clean public / preview mode: absolutely no editing artifacts or layout shifts
   if (!isEditingMode) {
     return <Component className={className}>{children || value || placeholder}</Component>;
   }
 
-  const handleCommit = () => {
-    setIsEditing(false);
-    if (currentValue !== value) {
-      onChange(currentValue);
+  const handleCommit = async () => {
+    if (saveStatus === 'saving') return;
+
+    if (currentValue === initialValueRef.current) {
+      setIsEditing(false);
+      setSaveStatus('idle');
+      return;
+    }
+
+    setSaveStatus('saving');
+    try {
+      const res = onChange(currentValue);
+      if (res && typeof (res as any).then === 'function') {
+        await res;
+      }
+      initialValueRef.current = currentValue;
+      setSaveStatus('saved');
+      setIsEditing(false);
+
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 1500);
+    } catch (err: any) {
+      console.error('InlineEditable save error:', err);
+      setSaveStatus('error');
+      setErrorMessage(err?.message || 'Save failed');
+      // Keep isEditing true so user draft is preserved and can retry
     }
   };
 
+  const handleCancel = () => {
+    setCurrentValue(initialValueRef.current);
+    setSaveStatus('idle');
+    setErrorMessage('');
+    setIsEditing(false);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    e.stopPropagation();
     if (e.key === 'Escape') {
-      setCurrentValue(value || '');
-      setIsEditing(false);
+      e.preventDefault();
+      handleCancel();
     } else if (e.key === 'Enter' && !multiline) {
       e.preventDefault();
       handleCommit();
@@ -71,57 +127,168 @@ export default function InlineEditable({
 
   const isBlock = block || Component === 'div' || Component === 'p' || Component === 'h1' || Component === 'h2' || Component === 'h3' || multiline;
 
+  // Active editing state
   if (isEditing) {
     if (multiline) {
       return (
-        <div className={`relative ${isBlock ? 'block w-full' : 'inline-block max-w-full'} z-40 my-1`}>
+        <div
+          className={`relative block w-full z-40 my-1 ${className}`}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           <textarea
-            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+            ref={textareaRef}
             value={currentValue}
-            onChange={(e) => setCurrentValue(e.target.value)}
-            onBlur={handleCommit}
+            disabled={saveStatus === 'saving'}
+            onChange={(e) => {
+              setCurrentValue(e.target.value);
+              setSaveStatus(e.target.value !== initialValueRef.current ? 'unsaved' : 'idle');
+              adjustTextareaHeight();
+            }}
             onKeyDown={handleKeyDown}
-            rows={Math.max(2, currentValue.split('\n').length)}
-            className={`w-full bg-[#ECE8DF] text-[#171514] border-2 border-[#DF491E] p-2 outline-none shadow-xl resize-y font-inherit text-inherit ${className}`}
-            aria-label={label || 'Editable field'}
+            aria-label={label || 'Editable multiline field'}
+            className="w-full bg-[#FAF8F5] text-[#171514] border-2 border-[#DF491E] p-2.5 rounded-xs outline-none shadow-xl font-inherit text-inherit resize-y min-h-[84px] leading-relaxed block text-[max(13px,inherit)]"
+            style={{
+              fontFamily: 'inherit',
+              fontWeight: 'inherit',
+              letterSpacing: 'inherit',
+            }}
           />
-          <div className="flex items-center justify-between font-mono text-[10px] text-[#5A5650] px-1 mt-0.5 bg-[#F2EFE7] border border-[#171514]/20 py-0.5">
-            <span>Press <kbd className="font-bold text-[#171514]">Ctrl+Enter</kbd> to save, <kbd className="font-bold text-[#171514]">Esc</kbd> to cancel</span>
-            <span className="text-[#DF491E] font-bold uppercase tracking-wider">{label || 'EDITING'}</span>
+          {/* Compact toolbar strictly below textarea — NEVER covering text */}
+          <div className="flex items-center justify-between font-mono text-[11px] text-[#5A5650] px-2.5 py-1 bg-[#ECE8DF] border border-[#171514]/20 rounded-b-xs mt-[-2px] select-none">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#171514]/70">
+                <kbd className="font-bold text-[#171514] bg-white/70 px-1 py-0.5 rounded border border-[#171514]/20">Ctrl+Enter</kbd> save • <kbd className="font-bold text-[#171514] bg-white/70 px-1 py-0.5 rounded border border-[#171514]/20">Esc</kbd> cancel
+              </span>
+              {saveStatus === 'error' && (
+                <span className="text-red-600 font-bold text-[10px]">✕ {errorMessage || 'Save failed. Draft preserved.'}</span>
+              )}
+              {saveStatus === 'unsaved' && (
+                <span className="text-[#DF491E] font-bold text-[10px]">● Draft unsaved</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={saveStatus === 'saving'}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCommit();
+                }}
+                className="px-2 py-0.5 bg-[#DF491E] text-white hover:bg-[#b83812] active:scale-95 disabled:opacity-50 rounded-xs shadow-xs cursor-pointer transition-all text-xs font-bold flex items-center gap-1"
+                title="Save changes (Ctrl+Enter)"
+              >
+                {saveStatus === 'saving' ? (
+                  <span className="animate-spin text-[10px]">⟳</span>
+                ) : (
+                  <span>✓</span>
+                )}
+                <span>SAVE</span>
+              </button>
+              <button
+                type="button"
+                disabled={saveStatus === 'saving'}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCancel();
+                }}
+                className="px-2 py-0.5 bg-[#ECE8DF] border border-[#171514]/30 text-[#171514] hover:bg-[#171514] hover:text-[#ECE8DF] active:scale-95 disabled:opacity-50 rounded-xs shadow-xs cursor-pointer transition-all text-xs font-bold flex items-center gap-1"
+                title="Cancel changes (Esc)"
+              >
+                <span>✕</span>
+                <span>CANCEL</span>
+              </button>
+            </div>
           </div>
         </div>
       );
     }
 
     return (
-      <span className={`relative ${isBlock ? 'block w-full' : 'inline-block max-w-full'} z-40 my-0.5`}>
+      <span
+        className={`relative inline-flex items-center gap-1.5 z-40 my-0.5 ${isBlock ? 'w-full' : 'max-w-full'}`}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <input
-          ref={inputRef as React.RefObject<HTMLInputElement>}
+          ref={inputRef}
           type="text"
           value={currentValue}
-          onChange={(e) => setCurrentValue(e.target.value)}
-          onBlur={handleCommit}
+          disabled={saveStatus === 'saving'}
+          onChange={(e) => {
+            setCurrentValue(e.target.value);
+            setSaveStatus(e.target.value !== initialValueRef.current ? 'unsaved' : 'idle');
+          }}
           onKeyDown={handleKeyDown}
-          className={`w-full bg-[#ECE8DF] text-[#171514] border-2 border-[#DF491E] px-2 py-0.5 outline-none shadow-xl font-inherit text-inherit ${className}`}
           aria-label={label || 'Editable field'}
+          className="bg-[#FAF8F5] text-[#171514] border-2 border-[#DF491E] px-2 py-0.5 rounded-xs outline-none shadow-md font-inherit text-inherit min-w-[70px] min-h-[26px] flex-1 text-[max(12px,inherit)]"
+          style={{
+            fontFamily: 'inherit',
+            fontWeight: 'inherit',
+            letterSpacing: 'inherit',
+            lineHeight: 'inherit',
+          }}
         />
-        <span className="absolute -top-4 right-0 font-mono text-[9px] bg-[#DF491E] text-[#171514] font-bold px-1.5 py-0.5 pointer-events-none uppercase tracking-wider shadow-sm z-50">
-          Enter to save • Esc to cancel
+        {/* Compact, unobtrusive action buttons positioned beside input — never covering text */}
+        <span className="inline-flex items-center gap-1 flex-shrink-0 select-none">
+          <button
+            type="button"
+            disabled={saveStatus === 'saving'}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCommit();
+            }}
+            title="Save (Enter)"
+            className="w-6 h-6 flex items-center justify-center bg-[#DF491E] text-white hover:bg-[#b83812] active:scale-95 disabled:opacity-50 rounded-xs shadow-xs cursor-pointer transition-all text-xs font-bold"
+          >
+            {saveStatus === 'saving' ? (
+              <span className="animate-spin text-[10px]">⟳</span>
+            ) : (
+              '✓'
+            )}
+          </button>
+          <button
+            type="button"
+            disabled={saveStatus === 'saving'}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCancel();
+            }}
+            title="Cancel (Esc)"
+            className="w-6 h-6 flex items-center justify-center bg-[#ECE8DF] border border-[#171514]/30 text-[#171514] hover:bg-[#171514] hover:text-[#ECE8DF] active:scale-95 disabled:opacity-50 rounded-xs shadow-xs cursor-pointer transition-all text-xs font-bold"
+          >
+            ✕
+          </button>
         </span>
+
+        {/* Compact error tooltip underneath if save failed */}
+        {saveStatus === 'error' && (
+          <span className="absolute -bottom-5 left-0 font-mono text-[9px] bg-red-600 text-white px-1.5 py-0.2 rounded-xs shadow-sm whitespace-nowrap z-50">
+            ✕ {errorMessage || 'Save failed. Click ✓ to retry.'}
+          </span>
+        )}
       </span>
     );
   }
 
-  // Active Editing Mode: outline rather than border avoids box-model layout shifting
+  // Active Editing Mode (Not currently editing this specific element)
   return (
     <Component
-      onClick={() => setIsEditing(true)}
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsEditing(true);
+      }}
       title={label ? `Click to edit ${label}` : 'Click to edit in place'}
       tabIndex={0}
       role="button"
       onKeyDown={(e: React.KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
+          e.stopPropagation();
           setIsEditing(true);
         }
       }}
@@ -130,9 +297,20 @@ export default function InlineEditable({
       } ${className}`}
     >
       {children || value || <span className="italic opacity-50">{placeholder}</span>}
-      <span className="absolute -top-3.5 right-0 font-mono text-[9px] font-bold bg-[#DF491E] text-[#171514] px-1.5 py-0.2 rounded-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none uppercase tracking-wider shadow-sm z-30 whitespace-nowrap">
-        ✎ {label || 'EDIT'}
-      </span>
+
+      {/* Temporary Saved Flash Badge */}
+      {saveStatus === 'saved' && (
+        <span className="absolute -top-3.5 right-0 font-mono text-[9px] font-bold bg-[#2A7B4C] text-white px-1.5 py-0.2 rounded-xs shadow-sm z-30 whitespace-nowrap">
+          ✓ SAVED
+        </span>
+      )}
+
+      {/* Hover Pencil Badge */}
+      {saveStatus !== 'saved' && (
+        <span className="absolute -top-3.5 right-0 font-mono text-[9px] font-bold bg-[#DF491E] text-[#171514] px-1.5 py-0.2 rounded-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none uppercase tracking-wider shadow-sm z-30 whitespace-nowrap">
+          ✎ {label || 'EDIT'}
+        </span>
+      )}
     </Component>
   );
 }
