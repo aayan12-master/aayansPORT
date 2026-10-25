@@ -37,14 +37,8 @@ export default function LivePortfolioEditor({
   isSidebarCollapsed = false,
   onToggleSidebar,
 }: LivePortfolioEditorProps) {
-  // Device Viewport Modes
-  const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
-
   // Editing Mode Toggle
   const [isEditingMode, setIsEditingMode] = useState<boolean>(true);
-
-  // Active Layer Indicator
-  const [activeLayer, setActiveLayer] = useState<'all' | 'hero' | 'profile' | 'background'>('all');
 
   // Profile & SEO Quick Drawer State
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
@@ -400,21 +394,6 @@ export default function LivePortfolioEditor({
     }
   };
 
-  // Smooth scroll helper for layer jumps
-  const jumpToLayer = (layer: 'hero' | 'profile' | 'background' | 'all') => {
-    setActiveLayer(layer);
-    let targetId = 'overview';
-    if (layer === 'hero') targetId = 'overview';
-    else if (layer === 'profile') targetId = 'collaborate';
-    else if (layer === 'background') targetId = 'background';
-    else if (layer === 'all') targetId = 'overview';
-
-    const el = document.getElementById(targetId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
   // Convert projects to initialTools
   const initialTools: GitHubTool[] = useMemo(() => {
     return projects.map(normalizeToolFromProject);
@@ -426,267 +405,165 @@ export default function LivePortfolioEditor({
   return (
     <div className="relative w-full flex flex-col bg-[#ECE8DF] min-h-screen">
       {/* ------------------------------------------------------------- */}
-      {/* TOP STICKY COMPACT TOOLBAR                                    */}
+      {/* TOP COMPACT TOOLBAR                                           */}
       {/* ------------------------------------------------------------- */}
-      <header className="sticky top-0 z-50 w-full bg-[#F2EFE7] border-b-2 border-[#171514] shadow-md select-none">
-        {/* Main Toolbar Row */}
-        <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-[#171514]/20">
-          {/* Left: Branding & Mode Switcher */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 bg-[#DF491E] animate-pulse" />
-              <span className="font-display font-black text-sm tracking-wider text-[#171514]">
-                LIVE PORTFOLIO EDITOR
+      <header className="sticky top-0 z-50 w-full bg-[#F2EFE7] border-b-2 border-[#171514] shadow-xs select-none font-mono">
+        <div className="px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2.5">
+          {/* Controls in Required Order (Left to Right) */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* 1. Portfolio Editor — small workspace title */}
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#DF491E]" />
+              <span className="font-bold text-xs tracking-wider text-[#171514]">
+                Portfolio Editor
               </span>
             </div>
 
-            <div className="h-4 w-[1px] bg-[#171514]/30" />
+            <div className="hidden sm:block h-3.5 w-[1px] bg-[#171514]/20" />
 
-            {/* Sidebar Toggle Button to Expand Horizontal Canvas */}
+            {/* 2. Admin Menu — toggle admin sidebar */}
             {onToggleSidebar && (
               <button
                 type="button"
                 onClick={onToggleSidebar}
-                className={`px-2.5 py-1 font-mono text-xs font-bold border border-[#171514] transition-colors flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 py-1 text-xs font-semibold border border-[#171514] transition-colors flex items-center gap-1.5 cursor-pointer rounded-xs ${
                   isSidebarCollapsed
-                    ? 'bg-[#171514] text-[#ECE8DF] hover:bg-[#DF491E] hover:text-[#171514]'
+                    ? 'bg-[#171514] text-[#ECE8DF]'
                     : 'bg-[#ECE8DF] text-[#171514] hover:bg-[#D7D3CB]'
                 }`}
-                title={isSidebarCollapsed ? 'Show admin sidebar navigation' : 'Hide admin sidebar navigation to give editor full screen width'}
+                title={isSidebarCollapsed ? 'Show admin sidebar' : 'Hide admin sidebar to expand canvas'}
               >
                 <span>{isSidebarCollapsed ? '▶' : '◀'}</span>
-                <span className="hidden sm:inline">{isSidebarCollapsed ? 'SHOW ADMIN MENU' : 'EXPAND CANVAS'}</span>
+                <span>Admin Menu</span>
               </button>
             )}
 
-            {/* Portfolio Navigation Rail Visibility Toggle */}
+            {/* 3. Navigation: Show/Hide — toggle navigation rail in canvas */}
             <button
               type="button"
               onClick={handleToggleCanvasNav}
-              className={`px-2.5 py-1 font-mono text-xs font-bold border border-[#171514] transition-colors flex items-center gap-1.5 cursor-pointer ${
+              className={`px-2.5 py-1 text-xs font-semibold border border-[#171514] transition-colors flex items-center gap-1.5 cursor-pointer rounded-xs ${
                 showCanvasNav
                   ? 'bg-[#171514] text-[#ECE8DF]'
                   : 'bg-[#ECE8DF] text-[#171514] hover:bg-[#D7D3CB]'
               }`}
-              title={showCanvasNav ? 'Hide Portfolio Navigation Rail to expand canvas space' : 'Show Portfolio Navigation Rail inside editor canvas'}
+              title={showCanvasNav ? 'Hide portfolio navigation rail in canvas' : 'Show portfolio navigation rail in canvas'}
             >
               <span>🧭</span>
-              <span className="hidden sm:inline">{showCanvasNav ? 'NAVIGATION: SHOW' : 'NAVIGATION: HIDE'}</span>
-              <span className="sm:hidden">{showCanvasNav ? 'NAV: ON' : 'NAV: OFF'}</span>
+              <span>{showCanvasNav ? 'Navigation: Show' : 'Navigation: Hide'}</span>
             </button>
 
-            {/* Mode Toggle Button */}
-            <div className="flex items-center border border-[#171514] bg-[#ECE8DF] p-0.5 font-mono text-xs">
+            {/* 4. Edit / Preview — single clear two-state toggle */}
+            <div className="inline-flex items-center border border-[#171514] bg-[#ECE8DF] p-0.5 rounded-xs text-xs">
               <button
                 type="button"
                 onClick={() => setIsEditingMode(true)}
-                className={`px-3 py-1 font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                className={`px-2.5 py-0.5 font-bold transition-colors cursor-pointer rounded-xs flex items-center gap-1 ${
                   isEditingMode
                     ? 'bg-[#DF491E] text-[#171514]'
                     : 'text-[#5A5650] hover:text-[#171514]'
                 }`}
-                title="Enable clickable inline text editing directly on the page"
               >
-                <span>✏️</span>
-                <span>EDITING MODE</span>
+                <span>✎</span>
+                <span>Edit Mode</span>
               </button>
               <button
                 type="button"
                 onClick={() => setIsEditingMode(false)}
-                className={`px-3 py-1 font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                className={`px-2.5 py-0.5 font-bold transition-colors cursor-pointer rounded-xs flex items-center gap-1 ${
                   !isEditingMode
                     ? 'bg-[#171514] text-[#ECE8DF]'
                     : 'text-[#5A5650] hover:text-[#171514]'
                 }`}
-                title="Preview the exact public presentation without outlines or toolbars"
               >
-                <span>👁️</span>
-                <span>PREVIEW MODE</span>
+                <span>👁</span>
+                <span>Preview Mode</span>
               </button>
             </div>
           </div>
 
-          {/* Center: Responsive Viewport Switcher */}
-          <div className="flex items-center border border-[#171514] bg-[#ECE8DF] p-0.5 font-mono text-xs">
+          {/* Right Action Group */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {/* Profile & SEO Drawer Toggle */}
             <button
               type="button"
-              onClick={() => setViewport('desktop')}
-              className={`px-3 py-1 font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                viewport === 'desktop'
-                  ? 'bg-[#171514] text-[#ECE8DF]'
-                  : 'text-[#5A5650] hover:text-[#171514]'
-              }`}
-              title="Full Desktop Screen (Natural 100% width)"
+              onClick={() => setIsProfileDrawerOpen(!isProfileDrawerOpen)}
+              className="px-2.5 py-1 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer rounded-xs"
+              title="Open global profile, contact, and SEO drawer"
             >
-              <span>🖥️</span>
-              <span className="hidden sm:inline">DESKTOP</span>
+              <span>⚙</span>
+              <span>Profile &amp; SEO</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setViewport('tablet')}
-              className={`px-3 py-1 font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                viewport === 'tablet'
-                  ? 'bg-[#171514] text-[#ECE8DF]'
-                  : 'text-[#5A5650] hover:text-[#171514]'
-              }`}
-              title="Tablet View (768px frame)"
-            >
-              <span>📱</span>
-              <span className="hidden sm:inline">TABLET</span>
-              <span className="text-[10px] text-[#5A5650] hidden md:inline">(768px)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewport('mobile')}
-              className={`px-3 py-1 font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                viewport === 'mobile'
-                  ? 'bg-[#171514] text-[#ECE8DF]'
-                  : 'text-[#5A5650] hover:text-[#171514]'
-              }`}
-              title="Mobile View (375px frame)"
-            >
-              <span>📲</span>
-              <span className="hidden sm:inline">MOBILE</span>
-              <span className="text-[10px] text-[#5A5650] hidden md:inline">(375px)</span>
-            </button>
-          </div>
 
-          {/* Right: Unsaved Badge & Action Buttons */}
-          <div className="flex items-center gap-2 font-mono text-xs">
-            {/* Status indicator */}
+            {/* 5. Unsaved Changes indicator — show ONLY when pending changes exist */}
             {totalUnsavedChanges > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#DF491E]/10 border border-[#DF491E] text-[#DF491E] font-bold">
-                <span className="w-2 h-2 rounded-full bg-[#DF491E] animate-pulse" />
-                <span>{totalUnsavedChanges} UNSAVED</span>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#DF491E]/15 border border-[#DF491E] text-[#DF491E] font-bold rounded-xs animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#DF491E]" />
+                <span>{totalUnsavedChanges} Unsaved</span>
               </div>
             )}
 
             {saveStatus === 'saved' && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#10B981]/10 border border-[#10B981] text-[#10B981] font-bold">
-                <span>✓ SAVED</span>
+              <div className="flex items-center gap-1 px-2.5 py-1 bg-[#10B981]/15 border border-[#10B981] text-[#10B981] font-bold rounded-xs">
+                <span>✓</span>
+                <span>Saved</span>
               </div>
             )}
 
             {saveStatus === 'error' && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#DF491E] text-[#ECE8DF] font-bold">
-                <span>✕ FAILED</span>
+              <div className="flex items-center gap-1 px-2.5 py-1 bg-[#DF491E] text-[#ECE8DF] font-bold rounded-xs">
+                <span>✕</span>
+                <span>Save Failed</span>
               </div>
             )}
 
-            {/* Revert / Cancel Button */}
-            <button
-              type="button"
-              onClick={handleRevert}
-              disabled={totalUnsavedChanges === 0 || isSaving}
-              className="px-3 py-1.5 border border-[#171514] bg-[#ECE8DF] hover:bg-[#D7D3CB] text-[#171514] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              title="Discard unsaved changes and restore to published version"
-            >
-              REVERT
-            </button>
+            {/* 6. Revert — discard pending changes with confirmation */}
+            {totalUnsavedChanges > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Discard all unsaved changes and restore published content?')) {
+                    handleRevert();
+                  }
+                }}
+                disabled={isSaving}
+                className="px-2.5 py-1 border border-[#171514] bg-[#ECE8DF] hover:bg-[#D7D3CB] text-[#171514] font-semibold transition-colors cursor-pointer rounded-xs disabled:opacity-50"
+                title="Discard pending changes and restore published version"
+              >
+                Revert
+              </button>
+            )}
 
-            {/* Save Changes Action */}
+            {/* 7. Save Changes — primary action */}
             <button
               type="button"
               onClick={handleSave}
               disabled={totalUnsavedChanges === 0 || isSaving}
-              className={`px-4 py-1.5 font-bold border border-[#171514] tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3 py-1 font-bold border border-[#171514] transition-all flex items-center gap-1.5 cursor-pointer rounded-xs ${
                 totalUnsavedChanges > 0
-                  ? 'bg-[#DF491E] text-[#171514] hover:bg-[#C73E16] shadow-sm'
+                  ? 'bg-[#DF491E] text-[#171514] hover:bg-[#C73E16] shadow-xs'
                   : 'bg-[#ECE8DF] text-[#5A5650] opacity-50 cursor-not-allowed'
               }`}
             >
               {isSaving ? (
                 <>
-                  <span className="w-2.5 h-2.5 bg-[#171514] animate-spin" />
-                  <span>SAVING...</span>
+                  <span className="w-2.5 h-2.5 border-2 border-[#171514] border-t-transparent rounded-full animate-spin" />
+                  <span>Saving...</span>
                 </>
               ) : (
                 <>
                   <span>💾</span>
-                  <span>SAVE CHANGES</span>
+                  <span>Save Changes</span>
                 </>
               )}
             </button>
           </div>
         </div>
 
-        {/* Sub-Bar: Layer Switcher & Quick Navigation */}
-        <div className="px-4 py-1.5 bg-[#ECE8DF] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="text-[#5A5650] text-[11px] mr-2">// WORKSPACE LAYERS:</span>
-
-            <button
-              type="button"
-              onClick={() => jumpToLayer('hero')}
-              className={`px-2.5 py-0.5 border transition-colors cursor-pointer flex items-center gap-1.5 ${
-                activeLayer === 'hero'
-                  ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
-                  : 'bg-[#F2EFE7] text-[#171514] border-[#171514]/30 hover:border-[#171514]'
-              }`}
-            >
-              <span>A. HERO &amp; OVERVIEW</span>
-              {isHeroDirty && <span className="w-1.5 h-1.5 rounded-full bg-[#DF491E]" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => jumpToLayer('profile')}
-              className={`px-2.5 py-0.5 border transition-colors cursor-pointer flex items-center gap-1.5 ${
-                activeLayer === 'profile'
-                  ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
-                  : 'bg-[#F2EFE7] text-[#171514] border-[#171514]/30 hover:border-[#171514]'
-              }`}
-            >
-              <span>B. GLOBAL PROFILE &amp; SOCIAL</span>
-              {isSettingsDirty && <span className="w-1.5 h-1.5 rounded-full bg-[#DF491E]" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => jumpToLayer('background')}
-              className={`px-2.5 py-0.5 border transition-colors cursor-pointer flex items-center gap-1.5 ${
-                activeLayer === 'background'
-                  ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
-                  : 'bg-[#F2EFE7] text-[#171514] border-[#171514]/30 hover:border-[#171514]'
-              }`}
-            >
-              <span>C. BACKGROUND &amp; RESEARCH DOMAINS</span>
-              {isAboutDirty && <span className="w-1.5 h-1.5 rounded-full bg-[#DF491E]" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => jumpToLayer('all')}
-              className={`px-2.5 py-0.5 border transition-colors cursor-pointer ${
-                activeLayer === 'all'
-                  ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
-                  : 'bg-[#F2EFE7] text-[#171514] border-[#171514]/30 hover:border-[#171514]'
-              }`}
-            >
-              FULL DOSSIER
-            </button>
-          </div>
-
-          {/* Quick Drawer Button & Instruction */}
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] text-[#5A5650] hidden xl:inline">
-              {isEditingMode ? '💡 Click highlighted text directly on canvas to edit in place' : '👁️ Public preview mode active'}
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsProfileDrawerOpen(!isProfileDrawerOpen)}
-              className="px-2.5 py-0.5 border border-[#171514] bg-[#F2EFE7] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              <span>⚙️</span>
-              <span>PROFILE &amp; SEO DRAWER</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Status notification toast under bar */}
+        {/* Status notification toast (only when message present) */}
         {saveMessage && (
           <div
-            className={`px-4 py-1.5 font-mono text-xs flex items-center justify-between border-t border-[#171514] ${
+            className={`px-3 py-1 font-mono text-xs flex items-center justify-between border-t border-[#171514] ${
               saveStatus === 'error'
                 ? 'bg-[#DF491E] text-[#ECE8DF] font-bold'
                 : saveStatus === 'saved'
@@ -696,8 +573,9 @@ export default function LivePortfolioEditor({
           >
             <span>{saveMessage}</span>
             <button
+              type="button"
               onClick={() => setSaveMessage('')}
-              className="font-bold hover:underline cursor-pointer text-xs"
+              className="font-bold hover:underline cursor-pointer text-xs ml-3"
             >
               ✕
             </button>
@@ -712,17 +590,17 @@ export default function LivePortfolioEditor({
         <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[500px] bg-[#F2EFE7] border-l-2 border-[#171514] shadow-2xl flex flex-col font-mono text-xs">
           <div className="p-4 border-b-2 border-[#171514] flex items-center justify-between bg-[#ECE8DF]">
             <div>
-              <div className="text-[10px] text-[#DF491E] font-bold">// GLOBAL SETTINGS</div>
+              <div className="text-[10px] text-[#DF491E] font-bold">// Global Settings</div>
               <h3 className="font-display font-black text-lg text-[#171514]">
-                PROFILE, SOCIAL &amp; SEO
+                Profile &amp; SEO
               </h3>
             </div>
             <button
               type="button"
               onClick={() => setIsProfileDrawerOpen(false)}
-              className="p-1.5 border border-[#171514] hover:bg-[#DF491E] hover:text-[#171514] transition-colors cursor-pointer"
+              className="px-2.5 py-1 border border-[#171514] bg-[#ECE8DF] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors cursor-pointer rounded-xs"
             >
-              ✕ CLOSE
+              ✕ Close
             </button>
           </div>
 
@@ -938,9 +816,9 @@ export default function LivePortfolioEditor({
             <button
               type="button"
               onClick={() => setIsProfileDrawerOpen(false)}
-              className="px-4 py-2 border border-[#171514] bg-[#171514] text-[#ECE8DF] font-bold hover:bg-[#DF491E] hover:text-[#171514] transition-colors cursor-pointer"
+              className="px-4 py-2 border border-[#171514] bg-[#171514] text-[#ECE8DF] font-bold hover:bg-[#DF491E] hover:text-[#171514] transition-colors cursor-pointer rounded-xs"
             >
-              DONE / PREVIEW ON CANVAS
+              Done / Close
             </button>
           </div>
         </div>
@@ -949,61 +827,32 @@ export default function LivePortfolioEditor({
       {/* ------------------------------------------------------------- */}
       {/* MAIN VISUAL EDITING CANVAS                                    */}
       {/* ------------------------------------------------------------- */}
-      <div
-        className={`flex-1 w-full transition-colors duration-200 ${
-          viewport === 'desktop'
-            ? 'bg-[#ECE8DF] p-0'
-            : 'bg-[#171514] py-8 px-4 flex justify-center items-start min-h-[calc(100vh-100px)] overflow-x-auto'
-        }`}
-      >
-        <div
-          className={`transition-all duration-300 w-full ${
-            viewport === 'desktop'
-              ? 'max-w-none shadow-none'
-              : viewport === 'tablet'
-              ? 'max-w-[768px] my-2 shadow-2xl border-4 border-[#171514] rounded-sm overflow-hidden ring-8 ring-black/40'
-              : 'max-w-[375px] my-2 shadow-2xl border-4 border-[#171514] rounded-sm overflow-hidden ring-8 ring-black/40'
-          }`}
-        >
-          {/* Simulated Device Frame Top Header for Tablet/Mobile */}
-          {viewport !== 'desktop' && (
-            <div className="bg-[#171514] text-[#ECE8DF] font-mono text-[10px] px-3 py-1.5 flex items-center justify-between border-b border-[#ECE8DF]/20 select-none">
-              <span className="text-[#DF491E] font-bold">
-                [{viewport.toUpperCase()} EMULATION — {viewport === 'tablet' ? '768px' : '375px'}]
-              </span>
-              <span className="text-[#BCB8B1]">INTERACTIVE PORTFOLIO CANVAS</span>
-            </div>
-          )}
-
-          {/* Actual Public Portfolio Website rendered live with editor bindings */}
-          <div className="bg-[#ECE8DF]">
-            <PortfolioClient
-              initialSettings={settings}
-              initialHero={hero}
-              initialAbout={about}
-              initialDomains={domains}
-              initialSkills={initialSkills}
-              initialTools={initialTools}
-              initialResearch={researchList}
-              projectsCount={projectsCount}
-              writeupsCount={writeupsCount}
-              isEditingMode={isEditingMode}
-              settingsOverride={settings}
-              heroOverride={hero}
-              aboutOverride={about}
-              domainsOverride={domains}
-              onSettingsChange={handleSettingsChange}
-              onHeroChange={handleHeroChange}
-              onAboutChange={handleAboutChange}
-              onDomainChange={handleDomainChange}
-              onAddDomain={handleAddDomain}
-              onDeleteDomain={handleDeleteDomain}
-              onMoveDomain={handleMoveDomain}
-              showNavigation={showCanvasNav}
-            />
-          </div>
-        </div>
-      </div>
+      <main className="flex-1 w-full bg-[#ECE8DF] min-h-screen">
+        <PortfolioClient
+          initialSettings={settings}
+          initialHero={hero}
+          initialAbout={about}
+          initialDomains={domains}
+          initialSkills={initialSkills}
+          initialTools={initialTools}
+          initialResearch={researchList}
+          projectsCount={projectsCount}
+          writeupsCount={writeupsCount}
+          isEditingMode={isEditingMode}
+          settingsOverride={settings}
+          heroOverride={hero}
+          aboutOverride={about}
+          domainsOverride={domains}
+          onSettingsChange={handleSettingsChange}
+          onHeroChange={handleHeroChange}
+          onAboutChange={handleAboutChange}
+          onDomainChange={handleDomainChange}
+          onAddDomain={handleAddDomain}
+          onDeleteDomain={handleDeleteDomain}
+          onMoveDomain={handleMoveDomain}
+          showNavigation={showCanvasNav}
+        />
+      </main>
     </div>
   );
 }

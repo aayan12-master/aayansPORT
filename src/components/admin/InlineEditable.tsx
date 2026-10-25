@@ -184,7 +184,7 @@ export default function InlineEditable({
                 ) : (
                   <span>✓</span>
                 )}
-                <span>SAVE</span>
+                <span>Save</span>
               </button>
               <button
                 type="button"
@@ -198,7 +198,7 @@ export default function InlineEditable({
                 title="Cancel changes (Esc)"
               >
                 <span>✕</span>
-                <span>CANCEL</span>
+                <span>Cancel</span>
               </button>
             </div>
           </div>
@@ -301,14 +301,14 @@ export default function InlineEditable({
       {/* Temporary Saved Flash Badge */}
       {saveStatus === 'saved' && (
         <span className="absolute -top-3.5 right-0 font-mono text-[9px] font-bold bg-[#2A7B4C] text-white px-1.5 py-0.2 rounded-xs shadow-sm z-30 whitespace-nowrap">
-          ✓ SAVED
+          ✓ Saved
         </span>
       )}
 
       {/* Hover Pencil Badge */}
       {saveStatus !== 'saved' && (
-        <span className="absolute -top-3.5 right-0 font-mono text-[9px] font-bold bg-[#DF491E] text-[#171514] px-1.5 py-0.2 rounded-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none uppercase tracking-wider shadow-sm z-30 whitespace-nowrap">
-          ✎ {label || 'EDIT'}
+        <span className="absolute -top-3.5 right-0 font-mono text-[9px] font-bold bg-[#DF491E] text-[#171514] px-1.5 py-0.2 rounded-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none tracking-wider shadow-sm z-30 whitespace-nowrap">
+          ✎ {label || 'Edit'}
         </span>
       )}
     </Component>
