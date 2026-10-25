@@ -21,6 +21,8 @@ export interface LivePortfolioEditorProps {
   projects?: any[];
   researchList?: any[];
   onDataSaved?: () => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export default function LivePortfolioEditor({
@@ -32,6 +34,8 @@ export default function LivePortfolioEditor({
   projects = [],
   researchList = [],
   onDataSaved,
+  isSidebarCollapsed = false,
+  onToggleSidebar,
 }: LivePortfolioEditorProps) {
   // Device Viewport Modes
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -61,6 +65,9 @@ export default function LivePortfolioEditor({
     quote: '"Security is not an absolute state, but a continuous process of adversarial exploration."',
     cta_text: 'EXPLORE DOSSIER',
     cta_target: '#research',
+    descriptor_1: '[ OFFENSIVE SECURITY ]',
+    descriptor_2: '[ WEB / MOBILE / CLOUD ]',
+    descriptor_3: '[ RESEARCH • EXPLOIT • BUILD ]',
   });
 
   const [settings, setSettings] = useState<SiteSettings>(() => initialSettings || {
@@ -395,15 +402,15 @@ export default function LivePortfolioEditor({
   const writeupsCount = researchList.length;
 
   return (
-    <div className="relative w-full flex flex-col bg-[#171514] min-h-screen">
+    <div className="relative w-full flex flex-col bg-[#ECE8DF] min-h-screen">
       {/* ------------------------------------------------------------- */}
-      {/* TOP STICKY TOOLBAR                                            */}
+      {/* TOP STICKY COMPACT TOOLBAR                                    */}
       {/* ------------------------------------------------------------- */}
       <header className="sticky top-0 z-50 w-full bg-[#F2EFE7] border-b-2 border-[#171514] shadow-md select-none">
         {/* Main Toolbar Row */}
-        <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-[#171514]/20">
+        <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-[#171514]/20">
           {/* Left: Branding & Mode Switcher */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 bg-[#DF491E] animate-pulse" />
               <span className="font-display font-black text-sm tracking-wider text-[#171514]">
@@ -412,6 +419,23 @@ export default function LivePortfolioEditor({
             </div>
 
             <div className="h-4 w-[1px] bg-[#171514]/30" />
+
+            {/* Sidebar Toggle Button to Expand Horizontal Canvas */}
+            {onToggleSidebar && (
+              <button
+                type="button"
+                onClick={onToggleSidebar}
+                className={`px-2.5 py-1 font-mono text-xs font-bold border border-[#171514] transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  isSidebarCollapsed
+                    ? 'bg-[#171514] text-[#ECE8DF] hover:bg-[#DF491E] hover:text-[#171514]'
+                    : 'bg-[#ECE8DF] text-[#171514] hover:bg-[#D7D3CB]'
+                }`}
+                title={isSidebarCollapsed ? 'Show admin sidebar navigation' : 'Hide admin sidebar navigation to give editor full screen width'}
+              >
+                <span>{isSidebarCollapsed ? '▶' : '◀'}</span>
+                <span className="hidden sm:inline">{isSidebarCollapsed ? 'SHOW ADMIN MENU' : 'EXPAND CANVAS'}</span>
+              </button>
+            )}
 
             {/* Mode Toggle Button */}
             <div className="flex items-center border border-[#171514] bg-[#ECE8DF] p-0.5 font-mono text-xs">
@@ -454,7 +478,7 @@ export default function LivePortfolioEditor({
                   ? 'bg-[#171514] text-[#ECE8DF]'
                   : 'text-[#5A5650] hover:text-[#171514]'
               }`}
-              title="Full Desktop Screen"
+              title="Full Desktop Screen (Natural 100% width)"
             >
               <span>🖥️</span>
               <span className="hidden sm:inline">DESKTOP</span>
@@ -467,7 +491,7 @@ export default function LivePortfolioEditor({
                   ? 'bg-[#171514] text-[#ECE8DF]'
                   : 'text-[#5A5650] hover:text-[#171514]'
               }`}
-              title="Tablet View (768px)"
+              title="Tablet View (768px frame)"
             >
               <span>📱</span>
               <span className="hidden sm:inline">TABLET</span>
@@ -481,7 +505,7 @@ export default function LivePortfolioEditor({
                   ? 'bg-[#171514] text-[#ECE8DF]'
                   : 'text-[#5A5650] hover:text-[#171514]'
               }`}
-              title="Mobile View (375px)"
+              title="Mobile View (375px frame)"
             >
               <span>📲</span>
               <span className="hidden sm:inline">MOBILE</span>
@@ -549,14 +573,14 @@ export default function LivePortfolioEditor({
         </div>
 
         {/* Sub-Bar: Layer Switcher & Quick Navigation */}
-        <div className="px-4 py-2 bg-[#ECE8DF] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+        <div className="px-4 py-1.5 bg-[#ECE8DF] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
           <div className="flex flex-wrap items-center gap-1">
             <span className="text-[#5A5650] text-[11px] mr-2">// WORKSPACE LAYERS:</span>
 
             <button
               type="button"
               onClick={() => jumpToLayer('hero')}
-              className={`px-2.5 py-1 border transition-colors cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-0.5 border transition-colors cursor-pointer flex items-center gap-1.5 ${
                 activeLayer === 'hero'
                   ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
                   : 'bg-[#F2EFE7] text-[#171514] border-[#171514]/30 hover:border-[#171514]'
@@ -569,7 +593,7 @@ export default function LivePortfolioEditor({
             <button
               type="button"
               onClick={() => jumpToLayer('profile')}
-              className={`px-2.5 py-1 border transition-colors cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-0.5 border transition-colors cursor-pointer flex items-center gap-1.5 ${
                 activeLayer === 'profile'
                   ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
                   : 'bg-[#F2EFE7] text-[#171514] border-[#171514]/30 hover:border-[#171514]'
@@ -582,7 +606,7 @@ export default function LivePortfolioEditor({
             <button
               type="button"
               onClick={() => jumpToLayer('background')}
-              className={`px-2.5 py-1 border transition-colors cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-0.5 border transition-colors cursor-pointer flex items-center gap-1.5 ${
                 activeLayer === 'background'
                   ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
                   : 'bg-[#F2EFE7] text-[#171514] border-[#171514]/30 hover:border-[#171514]'
@@ -595,7 +619,7 @@ export default function LivePortfolioEditor({
             <button
               type="button"
               onClick={() => jumpToLayer('all')}
-              className={`px-2.5 py-1 border transition-colors cursor-pointer ${
+              className={`px-2.5 py-0.5 border transition-colors cursor-pointer ${
                 activeLayer === 'all'
                   ? 'bg-[#171514] text-[#ECE8DF] border-[#171514]'
                   : 'bg-[#F2EFE7] text-[#171514] border-[#171514]/30 hover:border-[#171514]'
@@ -608,12 +632,12 @@ export default function LivePortfolioEditor({
           {/* Quick Drawer Button & Instruction */}
           <div className="flex items-center gap-3">
             <span className="text-[11px] text-[#5A5650] hidden xl:inline">
-              {isEditingMode ? '💡 Click highlighted text directly on canvas to edit' : '👁️ Public preview mode active'}
+              {isEditingMode ? '💡 Click highlighted text directly on canvas to edit in place' : '👁️ Public preview mode active'}
             </span>
             <button
               type="button"
               onClick={() => setIsProfileDrawerOpen(!isProfileDrawerOpen)}
-              className="px-2.5 py-1 border border-[#171514] bg-[#F2EFE7] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors flex items-center gap-1 cursor-pointer"
+              className="px-2.5 py-0.5 border border-[#171514] bg-[#F2EFE7] hover:bg-[#171514] hover:text-[#ECE8DF] font-bold transition-colors flex items-center gap-1 cursor-pointer"
             >
               <span>⚙️</span>
               <span>PROFILE &amp; SEO DRAWER</span>
@@ -647,7 +671,7 @@ export default function LivePortfolioEditor({
       {/* GLOBAL PROFILE & SEO SLIDE-OVER DRAWER                        */}
       {/* ------------------------------------------------------------- */}
       {isProfileDrawerOpen && (
-        <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] bg-[#F2EFE7] border-l-2 border-[#171514] shadow-2xl flex flex-col font-mono text-xs">
+        <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[500px] bg-[#F2EFE7] border-l-2 border-[#171514] shadow-2xl flex flex-col font-mono text-xs">
           <div className="p-4 border-b-2 border-[#171514] flex items-center justify-between bg-[#ECE8DF]">
             <div>
               <div className="text-[10px] text-[#DF491E] font-bold">// GLOBAL SETTINGS</div>
@@ -667,6 +691,43 @@ export default function LivePortfolioEditor({
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
             <div className="p-3 bg-[#DF491E]/10 border border-[#DF491E] text-[#171514] text-[11px] leading-relaxed">
               <strong>Unified Synchronization:</strong> Edits made here immediately propagate across the Live Canvas Navigation Rail, Connect Channels, and Footer in real time.
+            </div>
+
+            {/* Hero Descriptors Section in Drawer */}
+            <div className="border border-[#171514] p-4 bg-[#ECE8DF] space-y-3">
+              <div className="font-bold text-[#171514] uppercase tracking-wider text-[11px]">
+                // HERO BRACKETED DESCRIPTORS
+              </div>
+              <div>
+                <label className="block text-[11px] text-[#5A5650] mb-1">Descriptor 1</label>
+                <input
+                  type="text"
+                  value={hero.descriptor_1 || ''}
+                  onChange={(e) => handleHeroChange('descriptor_1', e.target.value)}
+                  className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-[#171514] focus:outline-none focus:border-[#DF491E]"
+                  placeholder="[ OFFENSIVE SECURITY ]"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-[#5A5650] mb-1">Descriptor 2</label>
+                <input
+                  type="text"
+                  value={hero.descriptor_2 || ''}
+                  onChange={(e) => handleHeroChange('descriptor_2', e.target.value)}
+                  className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-[#171514] focus:outline-none focus:border-[#DF491E]"
+                  placeholder="[ WEB / MOBILE / CLOUD ]"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-[#5A5650] mb-1">Descriptor 3</label>
+                <input
+                  type="text"
+                  value={hero.descriptor_3 || ''}
+                  onChange={(e) => handleHeroChange('descriptor_3', e.target.value)}
+                  className="w-full bg-[#F2EFE7] border border-[#171514] p-2 text-[#171514] focus:outline-none focus:border-[#DF491E]"
+                  placeholder="[ RESEARCH • EXPLOIT • BUILD ]"
+                />
+              </div>
             </div>
 
             {/* SEO Section */}
@@ -791,19 +852,25 @@ export default function LivePortfolioEditor({
       {/* ------------------------------------------------------------- */}
       {/* MAIN VISUAL EDITING CANVAS                                    */}
       {/* ------------------------------------------------------------- */}
-      <div className="flex-1 w-full flex items-center justify-center p-0 sm:p-4 md:p-6 bg-[#2B2826] overflow-x-auto min-h-screen">
+      <div
+        className={`flex-1 w-full transition-colors duration-200 ${
+          viewport === 'desktop'
+            ? 'bg-[#ECE8DF] p-0'
+            : 'bg-[#171514] py-8 px-4 flex justify-center items-start min-h-[calc(100vh-100px)] overflow-x-auto'
+        }`}
+      >
         <div
           className={`transition-all duration-300 w-full ${
             viewport === 'desktop'
               ? 'max-w-none shadow-none'
               : viewport === 'tablet'
-              ? 'max-w-[768px] my-6 shadow-2xl border-4 border-[#171514] rounded-sm overflow-hidden ring-8 ring-black/40'
-              : 'max-w-[375px] my-6 shadow-2xl border-4 border-[#171514] rounded-sm overflow-hidden ring-8 ring-black/40'
+              ? 'max-w-[768px] my-2 shadow-2xl border-4 border-[#171514] rounded-sm overflow-hidden ring-8 ring-black/40'
+              : 'max-w-[375px] my-2 shadow-2xl border-4 border-[#171514] rounded-sm overflow-hidden ring-8 ring-black/40'
           }`}
         >
           {/* Simulated Device Frame Top Header for Tablet/Mobile */}
           {viewport !== 'desktop' && (
-            <div className="bg-[#171514] text-[#ECE8DF] font-mono text-[10px] px-3 py-1.5 flex items-center justify-between border-b border-[#ECE8DF]/20">
+            <div className="bg-[#171514] text-[#ECE8DF] font-mono text-[10px] px-3 py-1.5 flex items-center justify-between border-b border-[#ECE8DF]/20 select-none">
               <span className="text-[#DF491E] font-bold">
                 [{viewport.toUpperCase()} EMULATION — {viewport === 'tablet' ? '768px' : '375px'}]
               </span>

@@ -33,6 +33,9 @@ export interface HeroContent {
   quote: string;
   cta_text: string;
   cta_target: string;
+  descriptor_1?: string;
+  descriptor_2?: string;
+  descriptor_3?: string;
   updated_at?: string;
 }
 
@@ -237,6 +240,9 @@ export async function getHeroContent(): Promise<HeroContent> {
     quote: 'CURIOSITY ALWAYS FINDS A WAY IN.',
     cta_text: 'VIEW MY RESEARCH',
     cta_target: 'research',
+    descriptor_1: '[ OFFENSIVE SECURITY ]',
+    descriptor_2: '[ WEB / MOBILE / CLOUD ]',
+    descriptor_3: '[ RESEARCH • EXPLOIT • BUILD ]',
   };
 }
 

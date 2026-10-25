@@ -47,6 +47,9 @@ export default function HeroMasterpiece({
     stat_curiosity: initialHero?.stat_curiosity || '∞',
     quote: initialHero?.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
     cta_text: initialHero?.cta_text || 'VIEW MY RESEARCH',
+    descriptor_1: initialHero?.descriptor_1 || '[ OFFENSIVE SECURITY ]',
+    descriptor_2: initialHero?.descriptor_2 || '[ WEB / MOBILE / CLOUD ]',
+    descriptor_3: initialHero?.descriptor_3 || '[ RESEARCH • EXPLOIT • BUILD ]',
   }));
 
   const currentHero = heroOverride || hero;
@@ -73,6 +76,9 @@ export default function HeroMasterpiece({
         stat_curiosity: initialHero.stat_curiosity || '∞',
         quote: initialHero.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
         cta_text: initialHero.cta_text || 'VIEW MY RESEARCH',
+        descriptor_1: initialHero.descriptor_1 || '[ OFFENSIVE SECURITY ]',
+        descriptor_2: initialHero.descriptor_2 || '[ WEB / MOBILE / CLOUD ]',
+        descriptor_3: initialHero.descriptor_3 || '[ RESEARCH • EXPLOIT • BUILD ]',
       });
       return;
     }
@@ -93,6 +99,9 @@ export default function HeroMasterpiece({
               stat_curiosity: data.hero.stat_curiosity || '∞',
               quote: data.hero.quote || 'CURIOSITY ALWAYS FINDS A WAY IN.',
               cta_text: data.hero.cta_text || 'VIEW MY RESEARCH',
+              descriptor_1: data.hero.descriptor_1 || '[ OFFENSIVE SECURITY ]',
+              descriptor_2: data.hero.descriptor_2 || '[ WEB / MOBILE / CLOUD ]',
+              descriptor_3: data.hero.descriptor_3 || '[ RESEARCH • EXPLOIT • BUILD ]',
             });
           }
           if (typeof data.projectsCount === 'number') {
@@ -135,9 +144,30 @@ export default function HeroMasterpiece({
 
           {/* Bracketed Scope Labels */}
           <div className="font-mono text-[11px] sm:text-xs text-[#171514] space-y-1 font-medium tracking-wide">
-            <div>[ OFFENSIVE SECURITY ]</div>
-            <div>[ WEB / MOBILE / CLOUD ]</div>
-            <div>[ RESEARCH • EXPLOIT • BUILD ]</div>
+            <div>
+              <InlineEditable
+                value={currentHero.descriptor_1 || '[ OFFENSIVE SECURITY ]'}
+                onChange={(val) => onHeroChange?.('descriptor_1', val)}
+                isEditingMode={isEditingMode}
+                label="Descriptor 1"
+              />
+            </div>
+            <div>
+              <InlineEditable
+                value={currentHero.descriptor_2 || '[ WEB / MOBILE / CLOUD ]'}
+                onChange={(val) => onHeroChange?.('descriptor_2', val)}
+                isEditingMode={isEditingMode}
+                label="Descriptor 2"
+              />
+            </div>
+            <div>
+              <InlineEditable
+                value={currentHero.descriptor_3 || '[ RESEARCH • EXPLOIT • BUILD ]'}
+                onChange={(val) => onHeroChange?.('descriptor_3', val)}
+                isEditingMode={isEditingMode}
+                label="Descriptor 3"
+              />
+            </div>
           </div>
         </div>
 
@@ -175,16 +205,31 @@ export default function HeroMasterpiece({
           </div>
 
           {/* Authentic Distressed Ink-Print Headline & Baseline Orange Accent */}
-          <div className="my-1 select-none">
-            <h1 className="relative block" aria-label="AAYAN.">
-              <Image
-                src="/assets/aayan_headline_clean.png"
-                alt="AAYAN."
-                width={413}
-                height={112}
-                className="w-[280px] sm:w-[330px] md:w-[360px] lg:w-[330px] xl:w-[385px] 2xl:w-[413px] max-w-full h-auto object-contain block drop-shadow-[0px_1px_1px_rgba(23,21,20,0.08)]"
-                priority
-              />
+          <div className="my-1">
+            <h1 className="relative block">
+              <InlineEditable
+                value={currentHero.brand_name || 'AAYAN.'}
+                onChange={(val) => onHeroChange?.('brand_name', val)}
+                isEditingMode={isEditingMode}
+                label="Brand Headline"
+                as="div"
+                className="font-display font-black text-5xl sm:text-6xl md:text-7xl lg:text-6xl xl:text-7xl tracking-wider text-[#171514]"
+              >
+                {(!currentHero.brand_name || currentHero.brand_name === 'AAYAN.') ? (
+                  <Image
+                    src="/assets/aayan_headline_clean.png"
+                    alt="AAYAN."
+                    width={413}
+                    height={112}
+                    className="w-[280px] sm:w-[330px] md:w-[360px] lg:w-[330px] xl:w-[385px] 2xl:w-[413px] max-w-full h-auto object-contain block drop-shadow-[0px_1px_1px_rgba(23,21,20,0.08)] pointer-events-none"
+                    priority
+                  />
+                ) : (
+                  <span className="font-display font-black text-5xl sm:text-6xl md:text-7xl lg:text-6xl xl:text-7xl tracking-wider text-[#171514] block">
+                    {currentHero.brand_name}
+                  </span>
+                )}
+              </InlineEditable>
             </h1>
           </div>
 

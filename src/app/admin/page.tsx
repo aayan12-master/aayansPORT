@@ -127,6 +127,9 @@ interface HeroData {
   quote: string;
   cta_text: string;
   cta_target: string;
+  descriptor_1?: string;
+  descriptor_2?: string;
+  descriptor_3?: string;
 }
 
 interface AboutData {
@@ -172,6 +175,9 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'content' | 'research' | 'projects' | 'skills' | 'submissions'
   >('overview');
+
+  // Sidebar collapse toggle for maximize canvas mode in Live Portfolio Editor
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Portfolio Content unified workspace sub-tab
   const [contentSubTab, setContentSubTab] = useState<'hero' | 'profile' | 'background'>('hero');
@@ -1203,7 +1209,9 @@ export default function AdminPage() {
       )}
 
       {/* Sidebar Navigation */}
-      <aside className="w-full lg:w-64 bg-[#F2EFE7] border-b-2 lg:border-b-0 lg:border-r-2 border-[#171514] p-5 flex flex-col justify-between shrink-0">
+      <aside className={`${
+        isSidebarCollapsed && activeTab === 'content' ? 'hidden' : 'w-full lg:w-64'
+      } bg-[#F2EFE7] border-b-2 lg:border-b-0 lg:border-r-2 border-[#171514] p-5 flex flex-col justify-between shrink-0 transition-all`}>
         <div className="space-y-6">
           {/* Brand block */}
           <div className="border-b border-[#171514]/20 pb-4">
@@ -1505,6 +1513,8 @@ export default function AdminPage() {
                 projects={projects}
                 researchList={researchList}
                 onDataSaved={loadAllData}
+                isSidebarCollapsed={isSidebarCollapsed}
+                onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               />
             )}
 
