@@ -123,10 +123,10 @@ function htmlToStructuredContent(html: string): string {
   let text = html;
 
   // Remove scripts, styles, SVGs, buttons, and Medium UI noise
-  text = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
-  text = text.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
-  text = text.replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '');
+  text = text.replace(/<script\b[\s\S]*?<\/script>/gi, '');
+  text = text.replace(/<style\b[\s\S]*?<\/style>/gi, '');
+  text = text.replace(/<svg\b[\s\S]*?<\/svg>/gi, '');
+  text = text.replace(/<button\b[\s\S]*?<\/button>/gi, '');
 
   // Pre / code blocks
   text = text.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (m, code) => {

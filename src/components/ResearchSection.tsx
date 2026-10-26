@@ -6,7 +6,7 @@ import ResponsiveImage from './ResponsiveImage';
 import { RESEARCH_CATEGORIES } from '@/lib/categories';
 
 interface ResearchPost {
-  id: number;
+  id: number | string;
   title: string;
   slug: string;
   summary: string;

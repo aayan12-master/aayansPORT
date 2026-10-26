@@ -2,12 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createContactSubmission } from '@/lib/cms';
 
 // In-memory rate limiting map (IP -> timestamps array)
+// Note: Per-instance memory limit; see architecture docs for serverless distribution considerations.
 const rateLimitMap = new Map<string, number[]>();
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
   const windowMs = 15 * 60 * 1000; // 15 minutes
   const maxRequests = 5; // max 5 submissions per 15 minutes
+
+  // Periodic pruning if map grows large to prevent memory leaks in persistent instances
+  if (rateLimitMap.size > 500) {
+    for (const [key, timestamps] of rateLimitMap.entries()) {
+      const active = timestamps.filter(t => now - t < windowMs);
+      if (active.length === 0) {
+        rateLimitMap.delete(key);
+      } else {
+        rateLimitMap.set(key, active);
+      }
+    }
+  }
 
   const timestamps = rateLimitMap.get(ip) || [];
   const validTimestamps = timestamps.filter(t => now - t < windowMs);
@@ -23,9 +36,10 @@ function isRateLimited(ip: string): boolean {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '127.0.0.1';
+    const rawForwarded = req.headers.get('x-forwarded-for');
+    const clientIp = rawForwarded ? rawForwarded.split(',')[0].trim() : (req.headers.get('x-real-ip') || '127.0.0.1');
 
-    if (isRateLimited(ip)) {
+    if (isRateLimited(clientIp)) {
       return NextResponse.json(
         { success: false, error: 'Rate limit exceeded. Please wait 15 minutes before sending another inquiry.' },
         { status: 429 }
@@ -76,7 +90,7 @@ export async function POST(req: NextRequest) {
       sender_email: email.trim().toLowerCase(),
       subject: subject.trim(),
       message: message.trim(),
-      ip_address: ip,
+      ip_address: clientIp,
     });
 
     return NextResponse.json({

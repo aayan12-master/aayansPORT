@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getResearchPosts, createResearchPost, updateResearchPost, deleteResearchPost } from '@/lib/cms';
 
@@ -47,6 +48,11 @@ export async function POST(req: NextRequest) {
       display_order: 0,
     });
 
+    try {
+      revalidatePath('/api/research');
+      revalidatePath('/');
+    } catch {}
+
     return NextResponse.json({ success: true, message: 'Research post created', post: created });
   } catch (error) {
     console.error('Error creating research post:', error);
@@ -83,6 +89,11 @@ export async function PUT(req: NextRequest) {
       status: status === 'draft' ? 'draft' : 'published',
     });
 
+    try {
+      revalidatePath('/api/research');
+      revalidatePath('/');
+    } catch {}
+
     return NextResponse.json({ success: true, message: 'Research post updated' });
   } catch (error: any) {
     console.error('Error updating research post:', error);
@@ -105,6 +116,12 @@ export async function DELETE(req: NextRequest) {
     }
 
     await deleteResearchPost(id);
+
+    try {
+      revalidatePath('/api/research');
+      revalidatePath('/');
+    } catch {}
+
     return NextResponse.json({ success: true, message: 'Research post deleted' });
   } catch (error) {
     console.error('Error deleting research post:', error);

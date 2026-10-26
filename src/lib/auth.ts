@@ -1,20 +1,34 @@
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 
-const SESSION_SECRET = process.env.ADMIN_SECRET || 'aayan_sec_researcher_auth_token_secret_key_2025';
 const COOKIE_NAME = 'aayan_admin_session';
 
+export function getSessionSecret(): string | null {
+  const secret = process.env.ADMIN_SECRET || process.env.ADMIN_JWT_SECRET;
+  if (!secret || typeof secret !== 'string' || !secret.trim()) {
+    return null;
+  }
+  return secret.trim();
+}
+
 export function signToken(payload: { username: string; timestamp: number }): string {
+  const secret = getSessionSecret();
+  if (!secret) {
+    throw new Error('Authentication secret is not configured on the server');
+  }
   const data = JSON.stringify(payload);
-  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(data).digest('hex');
+  const signature = crypto.createHmac('sha256', secret).update(data).digest('hex');
   return Buffer.from(JSON.stringify({ data, signature })).toString('base64');
 }
 
 export function verifyToken(token: string): { username: string; timestamp: number } | null {
   try {
+    const secret = getSessionSecret();
+    if (!secret) return null;
+
     const raw = Buffer.from(token, 'base64').toString('utf-8');
     const { data, signature } = JSON.parse(raw);
-    const expectedSig = crypto.createHmac('sha256', SESSION_SECRET).update(data).digest('hex');
+    const expectedSig = crypto.createHmac('sha256', secret).update(data).digest('hex');
     if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
       const parsed = JSON.parse(data);
       // Valid for 7 days

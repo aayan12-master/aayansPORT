@@ -123,8 +123,8 @@ export function extractReadmeExcerpt(readmeContent?: string, maxChars: number = 
   raw = raw.replace(/`([^`]+)`/g, '$1');
 
   // 5. Strip HTML scripts and tags
-  raw = raw.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  raw = raw.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  raw = raw.replace(/<script\b[\s\S]*?<\/script>/gi, '');
+  raw = raw.replace(/<style\b[\s\S]*?<\/style>/gi, '');
   raw = raw.replace(/<[^>]+>/g, '');
 
   // 6. Strip Markdown headings (# Title)

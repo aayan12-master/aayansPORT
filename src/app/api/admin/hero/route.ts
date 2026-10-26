@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getHeroContent, updateHeroContent } from '@/lib/cms';
 
@@ -27,6 +28,12 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     await updateHeroContent(body);
     const updated = await getHeroContent();
+
+    try {
+      revalidatePath('/');
+      revalidatePath('/api/settings');
+    } catch {}
+
     return NextResponse.json({ success: true, message: 'Hero content updated', hero: updated });
   } catch (error) {
     console.error('Error updating hero content:', error);

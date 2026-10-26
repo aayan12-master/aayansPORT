@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getSkills, createSkillCategory, updateSkillCategory, deleteSkillCategory } from '@/lib/cms';
 
@@ -45,6 +46,10 @@ export async function POST(req: NextRequest) {
     });
 
     const updated = await getSkills({ publishedOnly: false });
+    try {
+      revalidatePath('/api/settings');
+      revalidatePath('/');
+    } catch {}
     return NextResponse.json({
       success: true,
       message: `Domain ${created.category_num} created successfully`,
@@ -74,6 +79,10 @@ export async function PUT(req: NextRequest) {
         }
       }
       const updated = await getSkills({ publishedOnly: false });
+      try {
+        revalidatePath('/api/settings');
+        revalidatePath('/');
+      } catch {}
       return NextResponse.json({ success: true, message: 'Domain order updated', skills: updated });
     }
 
@@ -128,6 +137,10 @@ export async function PUT(req: NextRequest) {
     await updateSkillCategory(id, updates);
 
     const updated = await getSkills({ publishedOnly: false });
+    try {
+      revalidatePath('/api/settings');
+      revalidatePath('/');
+    } catch {}
     return NextResponse.json({ success: true, message: 'Skill category updated', skills: updated });
   } catch (error: any) {
     console.error('Error updating skills:', error);
@@ -152,6 +165,10 @@ export async function DELETE(req: NextRequest) {
     await deleteSkillCategory(id.trim());
 
     const updated = await getSkills({ publishedOnly: false });
+    try {
+      revalidatePath('/api/settings');
+      revalidatePath('/');
+    } catch {}
     return NextResponse.json({ success: true, message: 'Skill category deleted', skills: updated });
   } catch (error: any) {
     console.error('Error deleting skill category:', error);

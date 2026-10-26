@@ -1,39 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { signToken, COOKIE_NAME } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const { username, password } = await req.json();
+    const body = await req.json();
+    const { username, password } = body || {};
 
-    if (!username || !password) {
+    if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
       return NextResponse.json(
         { success: false, error: 'Username and password are required' },
         { status: 400 }
       );
     }
 
-    const isEnvMatch =
-      Boolean(process.env.ADMIN_USERNAME) &&
-      Boolean(process.env.ADMIN_PASSWORD) &&
-      username === process.env.ADMIN_USERNAME &&
-      password === process.env.ADMIN_PASSWORD;
+    const envUser = process.env.ADMIN_USERNAME;
+    const envPass = process.env.ADMIN_PASSWORD;
+    const envSecret = process.env.ADMIN_SECRET || process.env.ADMIN_JWT_SECRET;
 
-    const isDefaultMatch =
-      username === 'admin' &&
-      password === 'aayan_sec_2025';
+    // Fail securely if server environment variables are not configured
+    if (!envUser || !envPass || !envSecret) {
+      console.error('[Auth] Server authentication is unconfigured: ADMIN_USERNAME, ADMIN_PASSWORD, or ADMIN_SECRET missing.');
+      return NextResponse.json(
+        { success: false, error: 'Authentication service is misconfigured' },
+        { status: 500 }
+      );
+    }
 
-    if (!isEnvMatch && !isDefaultMatch) {
+    const bufUser = Buffer.from(username);
+    const bufEnvUser = Buffer.from(envUser);
+    const bufPass = Buffer.from(password);
+    const bufEnvPass = Buffer.from(envPass);
+
+    const userMatch =
+      bufUser.length === bufEnvUser.length &&
+      crypto.timingSafeEqual(bufUser, bufEnvUser);
+
+    const passMatch =
+      bufPass.length === bufEnvPass.length &&
+      crypto.timingSafeEqual(bufPass, bufEnvPass);
+
+    if (!userMatch || !passMatch) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 
     const token = signToken({ username, timestamp: Date.now() });
 
-
     const response = NextResponse.json({
       success: true,
       user: { username },
     });
-
 
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
@@ -49,3 +65,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
+

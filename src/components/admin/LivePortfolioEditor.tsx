@@ -673,7 +673,13 @@ export default function LivePortfolioEditor({
         setBaselineHero(hero);
         setBaselineSettings(settings);
         setBaselineAbout(about);
-        setBaselineDomains(domains);
+        const aboutResult = parsedResults.find((p) => p && Array.isArray(p.domains));
+        if (aboutResult && Array.isArray(aboutResult.domains)) {
+          setDomains(aboutResult.domains);
+          setBaselineDomains(aboutResult.domains);
+        } else {
+          setBaselineDomains(domains);
+        }
         setDeletedDomainIds([]);
 
         setSaveStatus('saved');

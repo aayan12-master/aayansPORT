@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getSiteSettings, updateSiteSettings } from '@/lib/cms';
 
@@ -71,6 +72,12 @@ export async function PUT(req: NextRequest) {
 
     await updateSiteSettings(body);
     const updated = await getSiteSettings();
+
+    try {
+      revalidatePath('/');
+      revalidatePath('/api/settings');
+    } catch {}
+
     return NextResponse.json({ success: true, message: 'Site settings updated', settings: updated });
   } catch (error) {
     console.error('Error updating site settings:', error);

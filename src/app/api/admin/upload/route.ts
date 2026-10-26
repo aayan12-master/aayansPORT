@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
 import { getSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/supabase/admin';
 import path from 'path';
-import fs from 'fs';
 
 const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -43,52 +42,55 @@ export async function POST(req: NextRequest) {
     const baseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
     const fileName = `${Date.now()}_${baseName}${ext}`;
 
-    // A. If Supabase is configured, upload to Supabase Storage bucket: portfolio-assets
+    // Upload to Supabase Storage bucket: portfolio-assets
     if (isSupabaseAdminConfigured) {
       const supabaseAdmin = getSupabaseAdminClient();
-      if (supabaseAdmin) {
-        const { data, error } = await supabaseAdmin.storage
+      if (!supabaseAdmin) {
+        console.error('[Upload] Failed to initialize Supabase admin client for upload.');
+        return NextResponse.json(
+          { success: false, error: 'Storage service initialization failed' },
+          { status: 500 }
+        );
+      }
+
+      const { data, error } = await supabaseAdmin.storage
+        .from('portfolio-assets')
+        .upload(fileName, buffer, {
+          contentType: file.type,
+          upsert: false,
+        });
+
+      if (error) {
+        console.error('[Upload] Supabase storage upload error:', error.message);
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Storage upload failed. Please verify storage bucket permissions in your Supabase dashboard.',
+          },
+          { status: 502 }
+        );
+      }
+
+      if (data) {
+        const { data: urlData } = supabaseAdmin.storage
           .from('portfolio-assets')
-          .upload(fileName, buffer, {
-            contentType: file.type,
-            upsert: false,
-          });
+          .getPublicUrl(fileName);
 
-        if (error) {
-          console.error('Supabase storage upload error:', error);
-          // Fall through to local fallback if bucket is missing or unconfigured
-        } else if (data) {
-          const { data: urlData } = supabaseAdmin.storage
-            .from('portfolio-assets')
-            .getPublicUrl(fileName);
-
-          return NextResponse.json({
-            success: true,
-            url: urlData.publicUrl,
-            fileName,
-            storage: 'supabase',
-          });
-        }
+        return NextResponse.json({
+          success: true,
+          url: urlData.publicUrl,
+          fileName,
+          storage: 'supabase',
+        });
       }
     }
 
-    // B. Local storage fallback
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const filePath = path.join(uploadDir, fileName);
-    fs.writeFileSync(filePath, buffer);
-
-    const publicUrl = `/uploads/${fileName}`;
-
-    return NextResponse.json({
-      success: true,
-      url: publicUrl,
-      fileName,
-      storage: 'local',
-    });
+    // Fail cleanly if storage backend is unconfigured
+    console.error('[Upload] Storage backend is not configured.');
+    return NextResponse.json(
+      { success: false, error: 'Storage service is not configured on this environment' },
+      { status: 503 }
+    );
   } catch (error) {
     console.error('Upload processing error:', error);
     return NextResponse.json({ success: false, error: 'Internal file upload error' }, { status: 500 });

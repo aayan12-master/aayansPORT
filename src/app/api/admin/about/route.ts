@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import {
   getAboutContent,
@@ -46,6 +47,10 @@ export async function POST(req: NextRequest) {
         display_order: typeof item.display_order === 'number' ? item.display_order : 0,
       });
       const updated = await getAboutContent();
+      try {
+        revalidatePath('/api/settings');
+        revalidatePath('/');
+      } catch {}
       return NextResponse.json({ success: true, message: 'Profile highlight created', domain: created, ...updated });
     }
 
@@ -58,6 +63,10 @@ export async function POST(req: NextRequest) {
         display_order: typeof item.display_order === 'number' ? item.display_order : 0,
       });
       const updated = await getAboutContent();
+      try {
+        revalidatePath('/api/settings');
+        revalidatePath('/');
+      } catch {}
       return NextResponse.json({ success: true, message: 'Methodology step created', step: created, ...updated });
     }
 
@@ -125,6 +134,10 @@ export async function PUT(req: NextRequest) {
     }
 
     const updated = await getAboutContent();
+    try {
+      revalidatePath('/api/settings');
+      revalidatePath('/');
+    } catch {}
     return NextResponse.json({ success: true, message: 'Background content updated', ...updated });
   } catch (error: any) {
     console.error('Error updating about content:', error?.message || error);
@@ -150,12 +163,20 @@ export async function DELETE(req: NextRequest) {
     if (type === 'domain') {
       await deleteResearchDomain(id);
       const updated = await getAboutContent();
+      try {
+        revalidatePath('/api/settings');
+        revalidatePath('/');
+      } catch {}
       return NextResponse.json({ success: true, message: 'Profile highlight deleted', ...updated });
     }
 
     if (type === 'step') {
       await deleteMethodologyStep(id);
       const updated = await getAboutContent();
+      try {
+        revalidatePath('/api/settings');
+        revalidatePath('/');
+      } catch {}
       return NextResponse.json({ success: true, message: 'Methodology step deleted', ...updated });
     }
 

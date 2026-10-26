@@ -151,7 +151,6 @@ npm start
 │   └── lib/
 │       ├── cms.ts               # Core CMS service layer (Supabase PostgreSQL)
 │       ├── auth.ts              # Authentication & session token management
-│       ├── db.ts                # Obsolete local SQLite engine (inactive)
 │       └── supabase/            # Supabase SSR and Admin clients
 
 ├── supabase/

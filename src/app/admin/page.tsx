@@ -430,7 +430,12 @@ export default function AdminPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setInitialAboutData({ ...aboutData });
-        setInitialDomains([...domains]);
+        if (Array.isArray(data.domains)) {
+          setDomains(data.domains);
+          setInitialDomains(data.domains);
+        } else {
+          setInitialDomains([...domains]);
+        }
         showFeedback('success', 'Background and research domains updated successfully.');
       } else {
         showFeedback('error', data.error || 'Failed to save background content.');
